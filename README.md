@@ -48,8 +48,8 @@ pytest
 After installing the Python package:
 
 ```bash
-.venv/bin/python examples/python/smoke_plume.py
-.venv/bin/python examples/python/cavity.py
+python3 examples/smoke_plume.py
+python3 examples/cavity.py
 ```
 
 `smoke_plume.py` simulates a rising smoke column and prints per-frame density

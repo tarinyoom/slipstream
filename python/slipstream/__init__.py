@@ -35,6 +35,12 @@ class State:
         self._temperature = arr
         self._state._set_temperature(arr)
 
+    def add_emitter(self, mask, density, temperature):
+        self._state._add_emitter(mask, density, temperature)
+
+    def set_obstacle(self, mask):
+        self._state._set_obstacle(mask)
+
     @property
     def viscosity(self):
         return self._state.viscosity
