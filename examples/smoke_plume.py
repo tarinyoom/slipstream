@@ -18,9 +18,11 @@ state.temperature = temperature
 state.viscosity   = 0.01
 state.buoyancy    = 0.8
 
-emitter = np.zeros((N, N), dtype=np.bool_)
-emitter[N // 2 - 2 : N // 2 + 2, 0:2] = True
-state.add_emitter(emitter, density=1.0, temperature=800.0)
+emitter_masks = np.zeros((1, N, N), dtype=np.bool_)
+emitter_masks[0, N // 2 - 2 : N // 2 + 2, 0:2] = True
+state.emitter_masks        = emitter_masks
+state.emitter_densities    = np.array([1.0],   dtype=np.float32)
+state.emitter_temperatures = np.array([800.0], dtype=np.float32)
 
 solver = Solver(backend=Backend.CPU)
 for frame in range(10):

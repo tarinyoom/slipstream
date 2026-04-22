@@ -21,8 +21,15 @@ public:
     std::span<float> velocity   ();
     std::span<float> temperature();
 
-    void set_obstacle(std::span<const bool> mask);
-    void add_emitter (std::span<const bool> mask, float density, float temperature);
+    void                  set_obstacle(std::span<const bool> mask);
+    std::span<const bool> obstacle() const;
+
+    void                  set_emitter_masks       (std::span<const bool>  masks);
+    void                  set_emitter_densities   (std::span<const float> densities);
+    void                  set_emitter_temperatures(std::span<const float> temperatures);
+    std::span<const bool>  emitter_masks       () const;
+    std::span<const float> emitter_densities   () const;
+    std::span<const float> emitter_temperatures() const;
 
     void  set_viscosity(float v);
     void  set_buoyancy (float v);

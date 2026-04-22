@@ -15,14 +15,11 @@ struct State::Impl {
     std::span<float> velocity;
     std::span<float> temperature;
 
-    struct Emitter {
-        std::vector<bool> mask;
-        float density;
-        float temperature;
-    };
+    std::span<const bool>  obstacle;
 
-    std::vector<bool>    obstacle;
-    std::vector<Emitter> emitters;
+    std::span<const bool>  emitter_masks;
+    std::span<const float> emitter_densities;
+    std::span<const float> emitter_temperatures;
 
     float viscosity = 0.0f;
     float buoyancy  = 0.0f;
@@ -51,12 +48,10 @@ void State::set_density(std::span<float> data) {
     if (data.empty()) throw std::invalid_argument("set_density: empty span");
     impl_->density = data;
 }
-
 void State::set_velocity(std::span<float> data) {
     if (data.empty()) throw std::invalid_argument("set_velocity: empty span");
     impl_->velocity = data;
 }
-
 void State::set_temperature(std::span<float> data) {
     if (data.empty()) throw std::invalid_argument("set_temperature: empty span");
     impl_->temperature = data;
@@ -66,10 +61,24 @@ std::span<float> State::density    () { return impl_->density;     }
 std::span<float> State::velocity   () { return impl_->velocity;    }
 std::span<float> State::temperature() { return impl_->temperature; }
 
-void State::set_obstacle(std::span<const bool> mask) {
+void                  State::set_obstacle(std::span<const bool> mask) {
     if (mask.empty()) throw std::invalid_argument("set_obstacle: empty span");
-    impl_->obstacle.assign(mask.begin(), mask.end());
+    impl_->obstacle = mask;
 }
+std::span<const bool> State::obstacle() const { return impl_->obstacle; }
+
+void State::set_emitter_masks(std::span<const bool> masks) {
+    impl_->emitter_masks = masks;
+}
+void State::set_emitter_densities(std::span<const float> densities) {
+    impl_->emitter_densities = densities;
+}
+void State::set_emitter_temperatures(std::span<const float> temperatures) {
+    impl_->emitter_temperatures = temperatures;
+}
+std::span<const bool>  State::emitter_masks       () const { return impl_->emitter_masks;        }
+std::span<const float> State::emitter_densities   () const { return impl_->emitter_densities;    }
+std::span<const float> State::emitter_temperatures() const { return impl_->emitter_temperatures; }
 
 static void check_param(float v, const char* name) {
     if (std::isnan(v) || std::isinf(v) || v < 0.0f)
@@ -82,14 +91,5 @@ void  State::set_vorticity(float v) { check_param(v, "vorticity"); impl_->vortic
 float State::viscosity() const { return impl_->viscosity; }
 float State::buoyancy () const { return impl_->buoyancy;  }
 float State::vorticity() const { return impl_->vorticity; }
-
-void State::add_emitter(std::span<const bool> mask, float density, float temperature) {
-    if (mask.empty()) throw std::invalid_argument("add_emitter: empty span");
-    Impl::Emitter e;
-    e.mask.assign(mask.begin(), mask.end());
-    e.density     = density;
-    e.temperature = temperature;
-    impl_->emitters.push_back(std::move(e));
-}
 
 } // namespace slipstream
