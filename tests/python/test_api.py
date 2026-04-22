@@ -14,15 +14,18 @@ def test_step_increases_density():
     state.velocity    = velocity
     state.temperature = temperature
 
-    solver = Solver(backend=Backend.CPU)
-    solver.step(state, dt=1.0 / 24.0)
+    with Solver(state, backend=Backend.CPU) as solver:
+        solver.step(dt=1.0 / 24.0)
 
     assert np.all(density > 0.0)
 
 
 def test_gpu_backend_raises():
+    N = 8
+    state = State(shape=(N, N))
+
     with pytest.raises(RuntimeError, match="UNSUPPORTED_BACKEND"):
-        Solver(backend=Backend.GPU)
+        Solver(state, backend=Backend.GPU)
 
 
 def test_state_field_refs_are_same_buffer():

@@ -9,5 +9,8 @@ using namespace slipstream;
 
 TEST(Scaffolding, ConvergencePlaceholder) {
     /* Verify that GPU backend throws. */
-    EXPECT_THROW(Solver(Backend::GPU), std::runtime_error);
+    int shape[] = {8, 8};
+    State state(shape, 2);
+
+    EXPECT_THROW(Solver(state, Backend::GPU), std::runtime_error);
 }

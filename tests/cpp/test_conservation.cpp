@@ -13,13 +13,13 @@ TEST(Scaffolding, StepIncreasesDensity) {
     std::vector<float> velocity   (16 * 16 * 2, 0.0f);
     std::vector<float> temperature(16 * 16,     0.0f);
 
-    state.set_density    (density);
-    state.set_velocity   (velocity);
-    state.set_temperature(temperature);
+    state.density     = density;
+    state.velocity    = velocity;
+    state.temperature = temperature;
 
-    Solver solver(Backend::CPU);
-    solver.step(state, 1.0f / 24.0f);
+    Solver solver(state, Backend::CPU);
+    solver.step(1.0f / 24.0f);
 
-    for (float d : state.density())
+    for (float d : state.density)
         EXPECT_GT(d, 0.0f);
 }

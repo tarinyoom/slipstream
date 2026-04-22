@@ -24,7 +24,7 @@ state.emitter_masks        = emitter_masks
 state.emitter_densities    = np.array([1.0],   dtype=np.float32)
 state.emitter_temperatures = np.array([800.0], dtype=np.float32)
 
-solver = Solver(backend=Backend.CPU)
-for frame in range(10):
-    solver.step(state, dt=1.0 / 24.0)
-    print(f"frame {frame:04d} — max density: {density.max():.4f}")
+with Solver(state, backend=Backend.CPU) as solver:
+    for frame in range(10):
+        solver.step(dt=1.0 / 24.0)
+        print(f"frame {frame:04d} — max density: {density.max():.4f}")

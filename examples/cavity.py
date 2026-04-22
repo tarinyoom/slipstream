@@ -18,7 +18,7 @@ state.velocity    = velocity
 state.temperature = temperature
 state.viscosity   = 0.01
 
-solver = Solver(backend=Backend.CPU)
-for frame in range(10):
-    solver.step(state, dt=1.0 / 24.0)
-    print(f"frame {frame:04d} — max density: {density.max():.4f}")
+with Solver(state, backend=Backend.CPU) as solver:
+    for frame in range(10):
+        solver.step(dt=1.0 / 24.0)
+        print(f"frame {frame:04d} — max density: {density.max():.4f}")

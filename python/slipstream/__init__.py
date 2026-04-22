@@ -1,5 +1,6 @@
 from ._core import Backend, _State, _Solver
 
+
 class State:
     def __init__(self, shape):
         self._state = _State(tuple(shape))
@@ -98,9 +99,16 @@ class State:
     def vorticity(self, v):
         self._state.vorticity = v
 
-class Solver:
-    def __init__(self, backend=Backend.CPU):
-        self._solver = _Solver(backend)
 
-    def step(self, state, dt):
-        self._solver.step(state._state, dt)
+class Solver:
+    def __init__(self, state, backend=Backend.CPU):
+        self._solver = _Solver(state._state, backend)
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *args):
+        del self._solver
+
+    def step(self, dt):
+        self._solver.step(dt)

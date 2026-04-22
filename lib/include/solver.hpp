@@ -9,13 +9,13 @@ enum class Backend { CPU, GPU };
 
 class Solver {
 public:
-    explicit Solver(Backend backend = Backend::CPU);
+    Solver(State& state, Backend backend = Backend::CPU);
     ~Solver();
 
     Solver(const Solver&)            = delete;
     Solver& operator=(const Solver&) = delete;
 
-    void step(State& state, float dt);
+    void step(float dt);
 
 private:
     struct Impl;

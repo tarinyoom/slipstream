@@ -1,6 +1,5 @@
 #include <nanobind/nanobind.h>
 #include <nanobind/ndarray.h>
-#include <nanobind/stl/string.h>
 #include <vector>
 
 #include "state.hpp"
@@ -10,9 +9,8 @@ namespace nb = nanobind;
 using namespace nb::literals;
 using namespace slipstream;
 
-using F32Array  = nb::ndarray<float,       nb::c_contig, nb::device::cpu>;
-using BoolArray = nb::ndarray<bool,        nb::c_contig, nb::device::cpu>;
-using CF32Array = nb::ndarray<const float, nb::c_contig, nb::device::cpu>;
+using F32Array  = nb::ndarray<float, nb::c_contig, nb::device::cpu>;
+using BoolArray = nb::ndarray<bool,  nb::c_contig, nb::device::cpu>;
 
 template <typename T>
 static nb::ndarray<nb::numpy, T> as_ndarray(std::span<T> sp) {
@@ -41,31 +39,31 @@ NB_MODULE(_core, m) {
             new (self) State(shape.data(), (int)shape.size());
         }, "shape"_a)
         .def_prop_rw("density",
-            [](State& s) { return as_ndarray(s.density()); },
-            [](State& s, F32Array a) { s.set_density({a.data(), a.size()}); })
+            [](State& s) { return as_ndarray(s.density); },
+            [](State& s, F32Array a) { s.density = {a.data(), a.size()}; })
         .def_prop_rw("velocity",
-            [](State& s) { return as_ndarray(s.velocity()); },
-            [](State& s, F32Array a) { s.set_velocity({a.data(), a.size()}); })
+            [](State& s) { return as_ndarray(s.velocity); },
+            [](State& s, F32Array a) { s.velocity = {a.data(), a.size()}; })
         .def_prop_rw("temperature",
-            [](State& s) { return as_ndarray(s.temperature()); },
-            [](State& s, F32Array a) { s.set_temperature({a.data(), a.size()}); })
+            [](State& s) { return as_ndarray(s.temperature); },
+            [](State& s, F32Array a) { s.temperature = {a.data(), a.size()}; })
         .def_prop_rw("obstacle",
-            [](State& s) { return as_ndarray(s.obstacle()); },
-            [](State& s, BoolArray a) { s.set_obstacle({a.data(), a.size()}); })
+            [](State& s) { return as_ndarray(s.obstacle); },
+            [](State& s, BoolArray a) { s.obstacle = {a.data(), a.size()}; })
         .def_prop_rw("emitter_masks",
-            [](State& s) { return as_ndarray(s.emitter_masks()); },
-            [](State& s, BoolArray a) { s.set_emitter_masks({a.data(), a.size()}); })
+            [](State& s) { return as_ndarray(s.emitter_masks); },
+            [](State& s, BoolArray a) { s.emitter_masks = {a.data(), a.size()}; })
         .def_prop_rw("emitter_densities",
-            [](State& s) { return as_ndarray(s.emitter_densities()); },
-            [](State& s, F32Array a) { s.set_emitter_densities({a.data(), a.size()}); })
+            [](State& s) { return as_ndarray(s.emitter_densities); },
+            [](State& s, F32Array a) { s.emitter_densities = {a.data(), a.size()}; })
         .def_prop_rw("emitter_temperatures",
-            [](State& s) { return as_ndarray(s.emitter_temperatures()); },
-            [](State& s, F32Array a) { s.set_emitter_temperatures({a.data(), a.size()}); })
-        .def_prop_rw("viscosity",    &State::viscosity,  &State::set_viscosity)
-        .def_prop_rw("buoyancy",     &State::buoyancy,   &State::set_buoyancy)
-        .def_prop_rw("vorticity",    &State::vorticity,  &State::set_vorticity);
+            [](State& s) { return as_ndarray(s.emitter_temperatures); },
+            [](State& s, F32Array a) { s.emitter_temperatures = {a.data(), a.size()}; })
+        .def_rw("viscosity",  &State::viscosity)
+        .def_rw("buoyancy",   &State::buoyancy)
+        .def_rw("vorticity",  &State::vorticity);
 
     nb::class_<Solver>(m, "_Solver")
-        .def(nb::init<Backend>(), "backend"_a)
-        .def("step", &Solver::step, "state"_a, "dt"_a);
+        .def(nb::init<State&, Backend>(), "state"_a, "backend"_a)
+        .def("step", &Solver::step, "dt"_a);
 }

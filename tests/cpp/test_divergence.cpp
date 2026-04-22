@@ -16,9 +16,9 @@ TEST(Scaffolding, DivergencePlaceholder) {
     std::vector<float> velocity   (8 * 8 * 2, 0.0f);
     std::vector<float> temperature(8 * 8,     0.0f);
 
-    state.set_density    (density);
-    state.set_velocity   (velocity);
-    state.set_temperature(temperature);
+    state.density     = density;
+    state.velocity    = velocity;
+    state.temperature = temperature;
 
-    Solver solver(Backend::CPU);
+    Solver solver(state, Backend::CPU);
 }
