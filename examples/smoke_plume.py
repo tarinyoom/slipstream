@@ -22,7 +22,7 @@ emitter = np.zeros((N, N), dtype=np.bool_)
 emitter[N // 2 - 2 : N // 2 + 2, 0:2] = True
 state.add_emitter(emitter, density=1.0, temperature=800.0)
 
-with Solver(backend=Backend.CPU) as solver:
-    for frame in range(10):
-        solver.step(state, dt=1.0 / 24.0)
-        print(f"frame {frame:04d} — max density: {density.max():.4f}")
+solver = Solver(backend=Backend.CPU)
+for frame in range(10):
+    solver.step(state, dt=1.0 / 24.0)
+    print(f"frame {frame:04d} — max density: {density.max():.4f}")

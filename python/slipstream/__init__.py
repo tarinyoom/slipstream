@@ -70,11 +70,5 @@ class Solver:
     def __init__(self, backend=Backend.CPU):
         self._solver = _Solver(backend)
 
-    def __enter__(self):
-        return self
-
-    def __exit__(self, *args):
-        del self._solver
-
     def step(self, state, dt):
         self._solver._step(state._state, dt)
