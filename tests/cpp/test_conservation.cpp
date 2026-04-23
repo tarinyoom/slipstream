@@ -9,12 +9,13 @@ TEST(Scaffolding, StepIncreasesDensity) {
     int shape[] = {16, 16};
     State state(shape, 2);
 
-    std::vector<float> density    (16 * 16,     0.0f);
-    std::vector<float> velocity   (16 * 16 * 2, 0.0f);
-    std::vector<float> temperature(16 * 16,     0.0f);
+    std::vector<float> density    (16 * 16,       0.0f);
+    std::vector<float> vx_data   (17 * 16,       0.0f);
+    std::vector<float> vy_data   (16 * 17,       0.0f);
+    std::vector<float> temperature(16 * 16,      0.0f);
 
     state.density     = density;
-    state.velocity    = velocity;
+    state.velocity    = {std::span<float>(vx_data), std::span<float>(vy_data)};
     state.temperature = temperature;
 
     Solver solver(state, Backend::CPU);

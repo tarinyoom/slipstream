@@ -5,13 +5,14 @@ from slipstream import Backend, State, Solver
 
 def test_step_increases_density():
     N = 16
-    density     = np.zeros((N, N),    dtype=np.float32)
-    velocity    = np.zeros((N, N, 2), dtype=np.float32)
-    temperature = np.zeros((N, N),    dtype=np.float32)
+    density     = np.zeros((N, N),         dtype=np.float32)
+    vx          = np.zeros(((N + 1) * N,), dtype=np.float32)
+    vy          = np.zeros((N * (N + 1),), dtype=np.float32)
+    temperature = np.zeros((N, N),         dtype=np.float32)
 
     state = State(shape=(N, N))
     state.density     = density
-    state.velocity    = velocity
+    state.velocity    = [vx, vy]
     state.temperature = temperature
 
     with Solver(state, backend=Backend.CPU) as solver:
@@ -29,13 +30,19 @@ def test_gpu_backend_raises():
 
 
 def test_state_field_refs_are_same_buffer():
-    """state.density setter stores a view — no copy."""
+    """Setters store views — no copy."""
     N = 8
     density = np.zeros((N, N), dtype=np.float32)
+    vx      = np.zeros(((N + 1) * N,), dtype=np.float32)
+    vy      = np.zeros((N * (N + 1),), dtype=np.float32)
 
     state = State(shape=(N, N))
-    state.density = density
-    assert state.density is density
+    state.density  = density
+    state.velocity = [vx, vy]
+
+    assert state.density     is density
+    assert state.velocity[0] is vx
+    assert state.velocity[1] is vy
 
 
 def test_state_parameters():

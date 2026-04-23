@@ -42,8 +42,20 @@ NB_MODULE(_core, m) {
             [](State& s) { return as_ndarray(s.density); },
             [](State& s, F32Array a) { s.density = {a.data(), a.size()}; })
         .def_prop_rw("velocity",
-            [](State& s) { return as_ndarray(s.velocity); },
-            [](State& s, F32Array a) { s.velocity = {a.data(), a.size()}; })
+            [](State& s) -> nb::list {
+                nb::list result;
+                for (auto& sp : s.velocity)
+                    result.append(as_ndarray(sp));
+                return result;
+            },
+            [](State& s, nb::list arrays) {
+                s.velocity.clear();
+                s.velocity.reserve(arrays.size());
+                for (size_t i = 0; i < arrays.size(); i++) {
+                    auto a = nb::cast<F32Array>(arrays[i]);
+                    s.velocity.push_back({a.data(), a.size()});
+                }
+            })
         .def_prop_rw("temperature",
             [](State& s) { return as_ndarray(s.temperature); },
             [](State& s, F32Array a) { s.temperature = {a.data(), a.size()}; })

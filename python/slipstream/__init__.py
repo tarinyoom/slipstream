@@ -3,7 +3,8 @@ from ._core import Backend, _State, _Solver
 
 class State:
     def __init__(self, shape):
-        self._state = _State(tuple(shape))
+        self._shape = tuple(shape)
+        self._state = _State(self._shape)
         self._density = None
         self._velocity = None
         self._temperature = None
@@ -18,6 +19,11 @@ class State:
 
     @density.setter
     def density(self, arr):
+        expected = 1
+        for s in self._shape:
+            expected *= s
+        if arr.size != expected:
+            raise ValueError(f"density must have {expected} elements, got {arr.size}")
         self._density = arr
         self._state.density = arr
 
@@ -26,9 +32,20 @@ class State:
         return self._velocity
 
     @velocity.setter
-    def velocity(self, arr):
-        self._velocity = arr
-        self._state.velocity = arr
+    def velocity(self, arrays):
+        ndim = len(self._shape)
+        if len(arrays) != ndim:
+            raise ValueError(f"velocity must have {ndim} components, got {len(arrays)}")
+        for i, arr in enumerate(arrays):
+            expected = 1
+            for j, s in enumerate(self._shape):
+                expected *= (s + 1) if j == i else s
+            if arr.size != expected:
+                raise ValueError(
+                    f"velocity[{i}] must have {expected} elements, got {arr.size}"
+                )
+        self._velocity = list(arrays)
+        self._state.velocity = list(arrays)
 
     @property
     def temperature(self):
@@ -36,6 +53,11 @@ class State:
 
     @temperature.setter
     def temperature(self, arr):
+        expected = 1
+        for s in self._shape:
+            expected *= s
+        if arr.size != expected:
+            raise ValueError(f"temperature must have {expected} elements, got {arr.size}")
         self._temperature = arr
         self._state.temperature = arr
 
@@ -45,6 +67,11 @@ class State:
 
     @obstacle.setter
     def obstacle(self, arr):
+        expected = 1
+        for s in self._shape:
+            expected *= s
+        if arr.size != expected:
+            raise ValueError(f"obstacle must have {expected} elements, got {arr.size}")
         self._obstacle = arr
         self._state.obstacle = arr
 

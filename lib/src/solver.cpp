@@ -13,6 +13,8 @@ Solver::Solver(State& state, Backend backend) {
     if (backend == Backend::GPU)
         throw std::runtime_error("UNSUPPORTED_BACKEND");
 
+    state.validate();
+
     impl_ = std::make_unique<Impl>();
     impl_->state   = &state;
     impl_->backend = backend;
