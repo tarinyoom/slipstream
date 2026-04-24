@@ -11,9 +11,8 @@ find_package(GTest CONFIG REQUIRED)
 add_library(slipstream_core SHARED
     lib/src/state.cpp
     lib/src/solver.cpp
-    lib/src/core/grid.cpp
-    lib/src/core/advect.cpp
-    lib/src/core/project.cpp
+    lib/src/cpu/advect.cpp
+    lib/src/cpu/project.cpp
 )
 target_include_directories(slipstream_core PUBLIC lib/include)
 target_compile_options(slipstream_core PRIVATE -Wall -Wextra)
