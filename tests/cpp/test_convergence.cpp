@@ -5,10 +5,7 @@
 
 using namespace slipstream;
 
-/* Pressure solver convergence tests — added in physics implementation phase. */
-
 TEST(Scaffolding, ConvergencePlaceholder) {
-    /* Verify that GPU backend throws. */
     int shape[] = {8, 8};
     State state(shape, 2);
 

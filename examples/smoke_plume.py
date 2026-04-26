@@ -1,8 +1,3 @@
-"""Smoke plume — scaffolding version.
-
-Runs the dummy solver (density += dt each step) and prints per-frame stats.
-"""
-
 import numpy as np
 from slipstream import Backend, State, Solver
 

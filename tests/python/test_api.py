@@ -30,7 +30,6 @@ def test_gpu_backend_raises():
 
 
 def test_state_field_refs_are_same_buffer():
-    """Setters store views — no copy."""
     N = 8
     density = np.zeros((N, N), dtype=np.float32)
     vx      = np.zeros(((N + 1) * N,), dtype=np.float32)

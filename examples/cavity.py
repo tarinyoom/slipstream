@@ -1,9 +1,3 @@
-"""Lid-driven cavity — scaffolding version.
-
-Top wall drives flow; other walls are no-slip.
-Demonstrates the State and Solver API end-to-end.
-"""
-
 import numpy as np
 from slipstream import Backend, State, Solver
 
