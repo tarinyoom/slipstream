@@ -17,10 +17,6 @@ jobs:
           sudo apt-get update
           sudo apt-get install -y cmake build-essential libgtest-dev python3-dev python3-pip
 
-      - name: Install Python dependencies
-        run: |
-          pip install --break-system-packages nanobind scikit-build-core numpy pytest
-
       - name: Build C++
         run: |
           cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -28,6 +24,10 @@ jobs:
 
       - name: Run C++ tests
         run: ctest --test-dir build --output-on-failure
+
+      - name: Install Python dependencies
+        run: |
+          pip install --break-system-packages nanobind scikit-build-core numpy pytest
 
       - name: Build Python package
         run: pip install --break-system-packages --no-build-isolation -e .
