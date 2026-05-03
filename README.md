@@ -43,6 +43,24 @@ pytest
 
 ---
 
+## Visualisation
+
+`dump_frames` renders a simulation to a numbered PPM image sequence:
+
+```bash
+./build/dump_frames --nx 64 --ny 64 --steps 120 --dt 0.04 --scale 4 --output frames/
+```
+
+Assemble the sequence into a video with ffmpeg:
+
+```bash
+ffmpeg -framerate 24 -i frames/frame_%04d.ppm -pix_fmt yuv420p out.mp4
+```
+
+The `-pix_fmt yuv420p` flag is required for playback on Windows.
+
+---
+
 ## Examples
 
 After installing the Python package:

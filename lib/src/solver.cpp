@@ -41,24 +41,37 @@ Solver::Solver(State& state, Backend backend) {
 Solver::~Solver() = default;
 
 void Solver::step(float dt) {
-    auto density = impl_->state->density;
+    State& state = *impl_->state;
+    auto density = state.density;
     if (density.empty())
         throw std::runtime_error("step: density field not set");
 
-    for (float& d : density)
-        d += dt;
+    if (!state.emitter_masks.empty()) {
+        int n = (int)state.emitter_densities.size();
+        for (int e = 0; e < n; ++e) {
+            for (int c = 0; c < state.total; ++c) {
+                if (state.emitter_masks[e * state.total + c]) {
+                    density[c] = state.emitter_densities[e];
+                    if (!state.temperature.empty() && !state.emitter_temperatures.empty())
+                        state.temperature[c] = state.emitter_temperatures[e];
+                }
+            }
+        }
+    }
 
-    if (!impl_->state->velocity.empty()) {
-        cpu::advect_velocity(impl_->state->shape,
-                             impl_->state->velocity,
-                             impl_->scratch,
-                             dt);
-        cpu::project(impl_->state->shape,
-                     impl_->state->velocity,
-                     impl_->state->obstacle,
-                     impl_->pressure,
-                     impl_->max_iterations,
-                     impl_->tolerance);
+    if (!state.velocity.empty()) {
+        cpu::advect_scalar(state.shape, density, impl_->scratch, state.velocity, dt);
+        std::copy(impl_->scratch.begin(), impl_->scratch.begin() + state.total, density.begin());
+
+        if (!state.temperature.empty()) {
+            cpu::advect_scalar(state.shape, state.temperature, impl_->scratch, state.velocity, dt);
+            std::copy(impl_->scratch.begin(), impl_->scratch.begin() + state.total,
+                      state.temperature.begin());
+        }
+
+        cpu::advect_velocity(state.shape, state.velocity, impl_->scratch, dt);
+        cpu::project(state.shape, state.velocity, state.obstacle,
+                     impl_->pressure, impl_->max_iterations, impl_->tolerance);
     }
 }
 

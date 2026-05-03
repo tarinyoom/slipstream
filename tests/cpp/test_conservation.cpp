@@ -5,22 +5,26 @@
 
 using namespace slipstream;
 
-TEST(Scaffolding, StepIncreasesDensity) {
-    int shape[] = {16, 16};
+TEST(Scaffolding, EmitterSetsDensityAtSourceCells) {
+    const int N = 16;
+    int shape[] = {N, N};
     State state(shape, 2);
 
-    std::vector<float> density    (16 * 16,       0.0f);
-    std::vector<float> vx_data   (17 * 16,       0.0f);
-    std::vector<float> vy_data   (16 * 17,       0.0f);
-    std::vector<float> temperature(16 * 16,      0.0f);
+    std::vector<float> density    (N * N, 0.0f);
+    std::vector<float> vx_data   ((N + 1) * N, 0.0f);
+    std::vector<float> vy_data   (N * (N + 1), 0.0f);
 
-    state.density     = density;
-    state.velocity    = {std::span<float>(vx_data), std::span<float>(vy_data)};
-    state.temperature = temperature;
+    bool em_mask_data[N * N] = {};
+    em_mask_data[8 * N + 8] = true;
+    std::vector<float> em_dens = {1.0f};
+
+    state.density           = density;
+    state.velocity          = {std::span<float>(vx_data), std::span<float>(vy_data)};
+    state.emitter_masks     = std::span<const bool>(em_mask_data, N * N);
+    state.emitter_densities = em_dens;
 
     Solver solver(state, Backend::CPU);
     solver.step(1.0f / 24.0f);
 
-    for (float d : state.density)
-        EXPECT_GT(d, 0.0f);
+    EXPECT_GT(state.density[8 * N + 8], 0.0f);
 }

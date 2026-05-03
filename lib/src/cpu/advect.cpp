@@ -94,4 +94,30 @@ void advect_velocity(std::span<const int>           shape,
     }
 }
 
+void advect_scalar(std::span<const int>                       shape,
+                   std::span<const float>                     field,
+                   std::span<float>                           scratch,
+                   const std::vector<std::span<float>>&       velocity,
+                   float                                      dt)
+{
+    const int Nx = shape[0];
+    const int Ny = shape[1];
+    int cs[2] = {Nx, Ny};
+
+    const float* vx = velocity[0].data();
+    const float* vy = velocity[1].data();
+
+    for (int i = 0; i < Nx; ++i) {
+        for (int j = 0; j < Ny; ++j) {
+            float vx_c = 0.5f * (vx[i * Ny + j] + vx[(i + 1) * Ny + j]);
+            float vy_c = 0.5f * (vy[i * (Ny + 1) + j] + vy[i * (Ny + 1) + (j + 1)]);
+
+            float bx = std::clamp((float)i - dt * vx_c, 0.0f, (float)(Nx - 1));
+            float by = std::clamp((float)j - dt * vy_c, 0.0f, (float)(Ny - 1));
+
+            scratch[i * Ny + j] = bilinear_sample(field, cs, bx, by);
+        }
+    }
+}
+
 } // namespace slipstream::cpu
