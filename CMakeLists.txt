@@ -35,7 +35,9 @@ add_executable(slipstream_tests
     tests/cpp/test_conservation.cpp
     tests/cpp/test_divergence.cpp
     tests/cpp/test_convergence.cpp
+    tests/cpp/test_advection.cpp
 )
+target_include_directories(slipstream_tests PRIVATE lib/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
 
 enable_testing()
