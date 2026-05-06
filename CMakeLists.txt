@@ -42,9 +42,9 @@ add_executable(slipstream_tests
 target_include_directories(slipstream_tests PRIVATE lib/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
 
-add_executable(dump_frames tools/dump_frames.cpp)
-target_include_directories(dump_frames PRIVATE lib/include)
-target_link_libraries(dump_frames PRIVATE slipstream_core)
+add_executable(slipstream tools/cli.cpp)
+target_include_directories(slipstream PRIVATE lib/include)
+target_link_libraries(slipstream PRIVATE slipstream_core)
 
 enable_testing()
 add_test(NAME slipstream_tests COMMAND slipstream_tests)

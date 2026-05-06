@@ -15,7 +15,7 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libgtest-dev python3-dev python3-pip
+          sudo apt-get install -y cmake build-essential libgtest-dev
 
       - name: Build C++
         run: |
@@ -25,17 +25,7 @@ jobs:
       - name: Run C++ tests
         run: ctest --test-dir build --output-on-failure
 
-      - name: Install Python dependencies
+      - name: Smoke test CLI
         run: |
-          pip install --break-system-packages nanobind scikit-build-core numpy pytest
-
-      - name: Build Python package
-        run: pip install --break-system-packages --no-build-isolation -e .
-
-      - name: Run Python tests
-        run: pytest
-
-      - name: Run examples
-        run: |
-          python3 examples/smoke_plume.py
-          python3 examples/cavity.py
+          build/slipstream single_emitter --nx 16 --ny 16 --steps 5 --output /tmp/cli_smoke
+          test $(ls /tmp/cli_smoke/*.ppm | wc -l) -eq 5
