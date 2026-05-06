@@ -5,6 +5,16 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(SLIPSTREAM_BUILD_PYTHON "Build the nanobind Python extension" OFF)
+option(SLIPSTREAM_BUILD_CUDA   "Build the CUDA GPU backend"          OFF)
+
+if(SLIPSTREAM_BUILD_CUDA)
+    if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
+        set(CMAKE_CUDA_ARCHITECTURES native)
+    endif()
+    enable_language(CUDA)
+    set(CMAKE_CUDA_STANDARD 20)
+    set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+endif()
 
 find_package(GTest CONFIG REQUIRED)
 
@@ -15,7 +25,13 @@ add_library(slipstream_core SHARED
     lib/src/cpu/project.cpp
 )
 target_include_directories(slipstream_core PUBLIC lib/include)
-target_compile_options(slipstream_core PRIVATE -Wall -Wextra)
+target_compile_options(slipstream_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
+
+if(SLIPSTREAM_BUILD_CUDA)
+    target_sources(slipstream_core PRIVATE lib/src/gpu/advect.cu)
+    target_include_directories(slipstream_core PRIVATE lib/src)
+    set_target_properties(slipstream_core PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+endif()
 
 if(SLIPSTREAM_BUILD_PYTHON)
     find_package(Python 3.11 COMPONENTS Interpreter Development.Module REQUIRED)
@@ -41,6 +57,13 @@ add_executable(slipstream_tests
 )
 target_include_directories(slipstream_tests PRIVATE lib/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
+
+if(SLIPSTREAM_BUILD_CUDA)
+    add_executable(slipstream_tests_gpu tests/cpp/test_gpu_parity.cu)
+    target_include_directories(slipstream_tests_gpu PRIVATE lib/src)
+    target_link_libraries(slipstream_tests_gpu PRIVATE slipstream_core GTest::gtest_main)
+    add_test(NAME slipstream_tests_gpu COMMAND slipstream_tests_gpu)
+endif()
 
 add_executable(slipstream tools/cli.cpp)
 target_include_directories(slipstream PRIVATE lib/include)
