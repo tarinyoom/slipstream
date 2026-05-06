@@ -39,8 +39,8 @@ __device__ float bilinear_sample_dev(const float* v, int fs0, int fs1, float px,
 }
 
 __global__ void advect_scalar_kernel(DeviceAdvectArgs a) {
-    int i = (int)(blockIdx.x * blockDim.x + threadIdx.x);
-    int j = (int)(blockIdx.y * blockDim.y + threadIdx.y);
+    int j = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    int i = (int)(blockIdx.y * blockDim.y + threadIdx.y);
     if (i >= a.Nx || j >= a.Ny) return;
 
     int Ny = a.Ny;
@@ -79,7 +79,7 @@ void advect_scalar(std::span<const int>                 shape,
     DeviceAdvectArgs args{ d_density, d_vx, d_vy, d_scratch, Nx, Ny, dt };
 
     dim3 block(16, 16);
-    dim3 grid((Nx + 15) / 16, (Ny + 15) / 16);
+    dim3 grid((Ny + 15) / 16, (Nx + 15) / 16);
     advect_scalar_kernel<<<grid, block>>>(args);
     cudaDeviceSynchronize();
 
