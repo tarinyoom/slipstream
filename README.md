@@ -1,7 +1,10 @@
 # Slipstream
 
-A Stam-lineage smoke solver with CPU and GPU backends. The core is a C++
-library; a Python package is provided as an optional binding.
+A C++ Stam-lineage smoke solver.
+
+Latest rendering:
+
+https://github.com/user-attachments/assets/bcf0c8de-0a42-47ce-ad22-ca69f2db5ba6
 
 ---
 
@@ -9,9 +12,9 @@ library; a Python package is provided as an optional binding.
 
 - CMake ≥ 3.24
 - C++20-compatible compiler (GCC or Clang)
-- GoogleTest (e.g. `sudo dnf install gtest-devel`)
+- GoogleTest (e.g. `sudo apt install libgtest-dev`)
 
-## C++ build and test
+## Build and test
 
 ```bash
 cmake -B build -DCMAKE_BUILD_TYPE=Release
@@ -21,34 +24,36 @@ ctest --test-dir build --output-on-failure
 
 ---
 
-## Python package build and test
+## CLI
 
-Additional dependencies:
+`slipstream` runs a named preset and writes a numbered PPM image sequence:
 
-- Python ≥ 3.11 with development headers (e.g. `sudo dnf install python3-devel`)
+```
+slipstream <preset> [options]
 
-Create a virtual environment and install Python dependencies:
+Presets:
+  single_emitter    Rising smoke plume from a central bottom emitter
 
-```bash
-python3 -m venv .venv
-.venv/bin/pip install nanobind scikit-build-core numpy pytest
+Options (all presets):
+  --output DIR      Output directory for PPM frames  (default: frames/)
+  --scale N         Pixel scale factor               (default: 4)
+  --vmax F          Density clamp for colour mapping (default: 1.0)
+
+Options (single_emitter):
+  --nx N            Grid width                       (default: 64)
+  --ny N            Grid height                      (default: 64)
+  --steps N         Number of frames to simulate     (default: 120)
+  --dt F            Timestep                         (default: 0.04)
+  --buoyancy F      Buoyancy coefficient             (default: 15.0)
+  --cooling F       Cooling decay rate               (default: 0.5)
+  --emitter-temp F  Temperature injected per step    (default: 200.0)
+  --emitter-dens F  Density injected per step        (default: 1.0)
 ```
 
-Build and install the package in editable mode, then run the test suite:
+Example:
 
 ```bash
-pip install --no-build-isolation -e .
-pytest
-```
-
----
-
-## Visualisation
-
-`dump_frames` renders a simulation to a numbered PPM image sequence:
-
-```bash
-./build/dump_frames --nx 64 --ny 64 --steps 120 --dt 0.04 --scale 4 --output frames/
+build/slipstream single_emitter --nx 64 --ny 64 --steps 120 --output frames/
 ```
 
 Assemble the sequence into a video with ffmpeg:
@@ -58,17 +63,3 @@ ffmpeg -framerate 24 -i frames/frame_%04d.ppm -pix_fmt yuv420p out.mp4
 ```
 
 The `-pix_fmt yuv420p` flag is required for playback on Windows.
-
----
-
-## Examples
-
-After installing the Python package:
-
-```bash
-python3 examples/smoke_plume.py
-python3 examples/cavity.py
-```
-
-`smoke_plume.py` simulates a rising smoke column and prints per-frame density
-stats. `cavity.py` demonstrates a driven-lid boundary condition.
