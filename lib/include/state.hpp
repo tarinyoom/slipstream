@@ -20,6 +20,7 @@ struct State {
 
     float viscosity = 0.0f;
     float buoyancy  = 0.0f;
+    float cooling   = 0.0f;
     float vorticity = 0.0f;
 
     explicit State(const int* shape, int ndim);

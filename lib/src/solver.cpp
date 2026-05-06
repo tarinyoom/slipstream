@@ -70,6 +70,21 @@ void Solver::step(float dt) {
         }
 
         cpu::advect_velocity(state.shape, state.velocity, impl_->scratch, dt);
+
+        if (state.buoyancy != 0.0f && !state.temperature.empty()) {
+            int Nx = state.shape[0], Ny = state.shape[1];
+            for (int i = 1; i < Nx; ++i)
+                for (int j = 0; j < Ny; ++j) {
+                    float t_avg = 0.5f * (state.temperature[(i-1)*Ny + j]
+                                        + state.temperature[i*Ny + j]);
+                    state.velocity[0][i*Ny + j] += state.buoyancy * t_avg * dt;
+                }
+        }
+
+        if (state.cooling != 0.0f)
+            for (float& t : state.temperature)
+                t *= (1.0f - state.cooling * dt);
+
         cpu::project(state.shape, state.velocity, state.obstacle,
                      impl_->pressure, impl_->max_iterations, impl_->tolerance);
     }

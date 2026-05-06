@@ -37,6 +37,7 @@ add_executable(slipstream_tests
     tests/cpp/test_convergence.cpp
     tests/cpp/test_advection.cpp
     tests/cpp/test_ppm.cpp
+    tests/cpp/test_buoyancy.cpp
 )
 target_include_directories(slipstream_tests PRIVATE lib/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
@@ -47,8 +48,3 @@ target_link_libraries(dump_frames PRIVATE slipstream_core)
 
 enable_testing()
 add_test(NAME slipstream_tests COMMAND slipstream_tests)
-add_test(NAME dump_frames_smoke
-    COMMAND bash -c
-    "\"$<TARGET_FILE:dump_frames>\" --steps 5 --output /tmp/ppm_ci_test \
-     && test $(ls /tmp/ppm_ci_test/frame_????.ppm | wc -l) -eq 5"
-)

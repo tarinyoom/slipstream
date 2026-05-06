@@ -33,13 +33,15 @@ int main(int argc, char** argv) {
     State state(shape, 2);
 
     std::vector<float> density_buf(nx * ny, 0.0f);
+    std::vector<float> temperature_buf(nx * ny, 0.0f);
     std::vector<float> vx_buf((nx + 1) * ny, 0.0f);
     std::vector<float> vy_buf(nx * (ny + 1), 0.0f);
 
-    for (float& v : vx_buf) v = 32.0f;
-
-    state.density  = std::span<float>(density_buf);
-    state.velocity = {std::span<float>(vx_buf), std::span<float>(vy_buf)};
+    state.density     = std::span<float>(density_buf);
+    state.temperature = std::span<float>(temperature_buf);
+    state.velocity    = {std::span<float>(vx_buf), std::span<float>(vy_buf)};
+    state.buoyancy    = 15.0f;
+    state.cooling     = 0.5f;
 
     auto em_mask_arr = std::make_unique<bool[]>((size_t)nx * ny);
     std::fill(em_mask_arr.get(), em_mask_arr.get() + nx * ny, false);
@@ -47,10 +49,12 @@ int main(int argc, char** argv) {
     for (int i = cx - 2; i < cx + 2; ++i)
         for (int j = cy - 2; j < cy + 2; ++j)
             em_mask_arr[i * ny + j] = true;
-    std::vector<float> em_dens = {1.0f};
+    std::vector<float> em_dens  = {1.0f};
+    std::vector<float> em_temps = {200.0f};
 
-    state.emitter_masks     = std::span<const bool>(em_mask_arr.get(), (size_t)nx * ny);
-    state.emitter_densities = std::span<const float>(em_dens);
+    state.emitter_masks        = std::span<const bool>(em_mask_arr.get(), (size_t)nx * ny);
+    state.emitter_densities    = std::span<const float>(em_dens);
+    state.emitter_temperatures = std::span<const float>(em_temps);
 
     std::filesystem::create_directories(output_dir);
 
