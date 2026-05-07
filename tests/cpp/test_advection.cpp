@@ -3,7 +3,7 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
-#include "state.hpp"
+#include "arena.hpp"
 #include "cpu/advect.hpp"
 
 using namespace slipstream;
@@ -11,15 +11,15 @@ using namespace slipstream;
 TEST(Advection, GaussianBumpTranslates) {
     const int Nx = 64, Ny = 64;
     int dims[] = {Nx, Ny};
-    CpuState cs(2, dims);
-    State& s = cs.s;
+    CalculationArena arena(Backend::CPU, 2, dims, 0, false);
+    PersistentState& s = arena.state;
 
     const float cx0 = 24.0f, cy0 = 24.0f;
     const float sigma = 8.0f;
     const float A = 1.5f;
 
-    float* vx = s.v;
-    float* vy = s.v + (Nx + 1) * Ny;
+    float* vx = s.velocity;
+    float* vy = s.velocity + (Nx + 1) * Ny;
 
     for (int i = 0; i <= Nx; ++i)
         for (int j = 0; j < Ny; ++j) {
@@ -61,11 +61,11 @@ TEST(Advection, GaussianBumpTranslates) {
 TEST(Advection, XReflectionSymmetryPreserved) {
     const int Nx = 32, Ny = 32;
     int dims[] = {Nx, Ny};
-    CpuState cs(2, dims);
-    State& s = cs.s;
+    CalculationArena arena(Backend::CPU, 2, dims, 0, false);
+    PersistentState& s = arena.state;
 
-    float* vx = s.v;
-    float* vy = s.v + (Nx + 1) * Ny;
+    float* vx = s.velocity;
+    float* vy = s.velocity + (Nx + 1) * Ny;
 
     std::mt19937 rng(1234);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);

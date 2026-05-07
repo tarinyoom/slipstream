@@ -28,15 +28,15 @@ __device__ static float bilinear_sample_dev(const float* v, int fs0, int fs1,
          +          tx *          ty * v11;
 }
 
-__global__ static void advect_scalar_kernel(State s, float* scratch, float dt) {
+__global__ static void advect_scalar_kernel(PersistentState s, float* scratch, float dt) {
     int j = (int)(blockIdx.x * blockDim.x + threadIdx.x);
     int i = (int)(blockIdx.y * blockDim.y + threadIdx.y);
-    int Nx = s.dims[0];
-    int Ny = s.dims[1];
+    int Nx = s.nx;
+    int Ny = s.ny;
     if (i >= Nx || j >= Ny) return;
 
-    const float* vx = s.v;
-    const float* vy = s.v + (Nx + 1) * Ny;
+    const float* vx = s.velocity;
+    const float* vy = s.velocity + (Nx + 1) * Ny;
 
     float vx_c = 0.5f * (vx[ i      * Ny + j] + vx[(i + 1) * Ny + j]);
     float vy_c = 0.5f * (vy[ i * (Ny + 1) + j] + vy[ i * (Ny + 1) + (j + 1)]);
@@ -47,10 +47,9 @@ __global__ static void advect_scalar_kernel(State s, float* scratch, float dt) {
     scratch[i * Ny + j] = bilinear_sample_dev(s.density, Nx, Ny, bx, by);
 }
 
-void advect_scalar(State s, float* d_scratch, float dt) {
-    int h_dims[2];
-    cudaMemcpy(h_dims, s.dims, 2 * sizeof(int), cudaMemcpyDeviceToHost);
-    int Nx = h_dims[0], Ny = h_dims[1];
+void advect_scalar(PersistentState s, float* d_scratch, float dt) {
+    int Nx = s.nx;
+    int Ny = s.ny;
 
     dim3 block(16, 16);
     dim3 grid((Ny + 15) / 16, (Nx + 15) / 16);

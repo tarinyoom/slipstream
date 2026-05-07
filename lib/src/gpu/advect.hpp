@@ -4,6 +4,6 @@
 
 namespace slipstream::gpu {
 
-void advect_scalar(State s, float* d_scratch, float dt);
+void advect_scalar(PersistentState s, float* d_scratch, float dt);
 
 } // namespace slipstream::gpu

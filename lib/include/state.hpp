@@ -2,48 +2,22 @@
 
 namespace slipstream {
 
-struct State {
+struct PersistentState {
+    int nx, ny;
     float* density;
-    float* v;            // (Nx+1)*Ny + Nx*(Ny+1)  — vx then vy, one flat buffer
+    float* velocity;         // (nx+1)*ny + nx*(ny+1) — staggered
     float* temperature;
-
-    const bool*  obstacle;
-    const bool*  emitter_masks;
-    const float* emitter_densities;
-    const float* emitter_temperatures;
-
-    int  n_dims;
-    int* dims;
-    int  n_emitters;
-
+    float* obstacle;
+    float* emitter_masks;        // n_emitters * nx * ny
+    float* emitter_densities;    // n_emitters
+    float* emitter_temperatures; // n_emitters
+    int    n_emitters;
     float viscosity, buoyancy, cooling, vorticity;
 };
 
-State alloc_cpu_state(int n_dims, const int* dims, int n_emitters = 0);
-void  free_cpu_state(State& s);
-
-State alloc_gpu_state(int n_dims, const int* dims, int n_emitters = 0);
-void  free_gpu_state(State& s);
-
-struct CpuState {
-    State s;
-    CpuState(int n_dims, const int* dims, int n_emitters = 0)
-        : s(alloc_cpu_state(n_dims, dims, n_emitters)) {}
-    ~CpuState() { free_cpu_state(s); }
-    CpuState(const CpuState&)            = delete;
-    CpuState& operator=(const CpuState&) = delete;
+struct ScratchState {
+    float* pressure;  // nx * ny
+    float* tmp;       // max((nx+1)*ny, nx*(ny+1))
 };
-
-struct GpuState {
-    State s;
-    GpuState(int n_dims, const int* dims, int n_emitters = 0)
-        : s(alloc_gpu_state(n_dims, dims, n_emitters)) {}
-    ~GpuState() { free_gpu_state(s); }
-    GpuState(const GpuState&)            = delete;
-    GpuState& operator=(const GpuState&) = delete;
-};
-
-void upload(const CpuState& src, GpuState& dst);
-void download(const GpuState& src, CpuState& dst);
 
 } // namespace slipstream

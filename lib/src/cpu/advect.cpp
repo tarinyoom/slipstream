@@ -38,11 +38,11 @@ float safe_get(const float* v, const int fs[2], int a, int b) {
 
 } // anonymous namespace
 
-void advect_velocity(const State& s, float* scratch, float dt) {
-    const int Nx = s.dims[0];
-    const int Ny = s.dims[1];
+void advect_velocity(const PersistentState& s, float* scratch, float dt) {
+    const int Nx = s.nx;
+    const int Ny = s.ny;
 
-    float* vel[2] = { s.v, s.v + (Nx + 1) * Ny };
+    float* vel[2] = { s.velocity, s.velocity + (Nx + 1) * Ny };
 
     for (int dim = 0; dim < 2; ++dim) {
         const int other = 1 - dim;
@@ -87,13 +87,13 @@ void advect_velocity(const State& s, float* scratch, float dt) {
     }
 }
 
-void advect_scalar(const State& s, const float* field, float* scratch, float dt) {
-    const int Nx = s.dims[0];
-    const int Ny = s.dims[1];
+void advect_scalar(const PersistentState& s, const float* field, float* scratch, float dt) {
+    const int Nx = s.nx;
+    const int Ny = s.ny;
     int cs[2] = {Nx, Ny};
 
-    const float* vx = s.v;
-    const float* vy = s.v + (Nx + 1) * Ny;
+    const float* vx = s.velocity;
+    const float* vy = s.velocity + (Nx + 1) * Ny;
 
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {

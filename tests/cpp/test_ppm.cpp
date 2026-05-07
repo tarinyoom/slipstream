@@ -3,10 +3,11 @@
 #include <cstdint>
 #include <string>
 #include <vector>
+#include <algorithm>
 
 #include "ppm.hpp"
-#include "state.hpp"
-#include "solver.hpp"
+#include "arena.hpp"
+#include "cpu/step.hpp"
 
 using namespace slipstream;
 
@@ -75,19 +76,17 @@ TEST(PPM, KnownValueMapsToLUTEntry) {
 TEST(PPM, DensityAdvectsCrossFrames) {
     const int Nx = 32, Ny = 32;
     int dims[] = {Nx, Ny};
-    CpuState cs(2, dims, 1);
-    State& s = cs.s;
+    CalculationArena arena(Backend::CPU, 2, dims, 1, true);
+    PersistentState& s = arena.state;
 
-    float* vx = s.v;
+    float* vx = s.velocity;
     std::fill(vx, vx + (Nx + 1) * Ny, 1.0f);
 
-    bool* masks = const_cast<bool*>(s.emitter_masks);
     for (int j = 0; j < Ny; ++j)
-        masks[0 * Ny + j] = true;
-    const_cast<float*>(s.emitter_densities)[0] = 1.0f;
+        s.emitter_masks[0 * Ny + j] = 1.0f;
+    s.emitter_densities[0] = 1.0f;
 
-    Solver solver(s);
-    solver.step(1.0f);
+    cpu::step(s, *arena.scratch, 1.0f);
 
     auto com_x = [&]() {
         double sum_x = 0.0, sum_w = 0.0;
@@ -103,7 +102,7 @@ TEST(PPM, DensityAdvectsCrossFrames) {
     double com0 = com_x();
 
     for (int step = 1; step < 8; ++step)
-        solver.step(1.0f);
+        cpu::step(s, *arena.scratch, 1.0f);
 
     double com8 = com_x();
     EXPECT_GT(com8, com0);

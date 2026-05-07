@@ -1,6 +1,6 @@
-#include "state.hpp"
-#include "solver.hpp"
+#include "arena.hpp"
 #include "ppm.hpp"
+#include "cpu/step.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -66,26 +66,23 @@ static int run_single_emitter(int argc, char** argv) {
         output_dir.pop_back();
 
     int dims[] = {nx, ny};
-    CpuState cs(2, dims, 1);
-    State& s = cs.s;
+    CalculationArena arena(Backend::CPU, 2, dims, 1, true);
+    PersistentState& s = arena.state;
 
     s.buoyancy = buoyancy;
     s.cooling  = cooling;
 
     const int cx = nx / 2, cy = ny / 2;
-    bool* masks = const_cast<bool*>(s.emitter_masks);
     for (int i = cx - 2; i < cx + 2; ++i)
         for (int j = cy - 2; j < cy + 2; ++j)
-            masks[i * ny + j] = true;
-    const_cast<float*>(s.emitter_densities)[0]    = emitter_dens;
-    const_cast<float*>(s.emitter_temperatures)[0] = emitter_temp;
+            s.emitter_masks[i * ny + j] = 1.0f;
+    s.emitter_densities[0]    = emitter_dens;
+    s.emitter_temperatures[0] = emitter_temp;
 
     std::filesystem::create_directories(output_dir);
 
-    Solver solver(s);
-
     for (int step = 0; step < steps; ++step) {
-        solver.step(dt);
+        cpu::step(s, *arena.scratch, dt);
 
         float max_d = *std::max_element(s.density, s.density + nx * ny);
 

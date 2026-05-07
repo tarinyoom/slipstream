@@ -3,26 +3,20 @@
 #include <cmath>
 #include <random>
 #include <algorithm>
-#include "state.hpp"
-#include "solver.hpp"
-#include "grid.hpp"
+#include "arena.hpp"
+#include "cpu/step.hpp"
 
 using namespace slipstream;
 
 namespace {
 
-float max_div_2d(const int* shape, const float* vx, const float* vy)
+float max_div_2d(int Nx, int Ny, const float* vx, const float* vy)
 {
     float max_div = 0.0f;
-    for (int i = 0; i < shape[0]; ++i) {
-        for (int j = 0; j < shape[1]; ++j) {
-            int lo[2]  = {i,     j    };
-            int hix[2] = {i + 1, j    };
-            int hiy[2] = {i,     j + 1};
-            float div = vx[face_idx(shape, 2, 0, hix)]
-                      - vx[face_idx(shape, 2, 0, lo )]
-                      + vy[face_idx(shape, 2, 1, hiy)]
-                      - vy[face_idx(shape, 2, 1, lo )];
+    for (int i = 0; i < Nx; ++i) {
+        for (int j = 0; j < Ny; ++j) {
+            float div = vx[(i + 1) * Ny + j    ] - vx[i * Ny + j    ]
+                      + vy[ i      * (Ny + 1) + j + 1] - vy[i * (Ny + 1) + j];
             max_div = std::max(max_div, std::abs(div));
         }
     }
@@ -33,44 +27,38 @@ float max_div_2d(const int* shape, const float* vx, const float* vy)
 
 TEST(Projection, ZeroesDiv_UniformField) {
     int dims[] = {8, 8};
-    CpuState cs(2, dims);
-    State& s = cs.s;
+    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
+    PersistentState& s = arena.state;
 
-    float* vx = s.v;
-    float* vy = s.v + 9 * 8;
+    float* vx = s.velocity;
+    float* vy = s.velocity + 9 * 8;
     std::fill(vx, vx + 9 * 8, 1.0f);
     std::fill(vy, vy + 8 * 9, 1.0f);
 
-    Solver solver(s);
-    solver.step(1.0f / 24.0f);
+    cpu::step(s, *arena.scratch, 1.0f / 24.0f);
 
-    EXPECT_LT(max_div_2d(dims, vx, vy), 1e-3f);
+    EXPECT_LT(max_div_2d(8, 8, vx, vy), 1e-3f);
 }
 
 TEST(Projection, ZeroesDiv_RandomField) {
     int dims[] = {8, 8};
-    CpuState cs(2, dims);
-    State& s = cs.s;
+    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
+    PersistentState& s = arena.state;
 
-    float* vx = s.v;
-    float* vy = s.v + 9 * 8;
+    float* vx = s.velocity;
+    float* vy = s.velocity + 9 * 8;
 
     std::mt19937 rng(42);
     std::uniform_real_distribution<float> dist(-1.0f, 1.0f);
 
     for (int i = 1; i < dims[0]; ++i)
-        for (int j = 0; j < dims[1]; ++j) {
-            int f[2] = {i, j};
-            vx[face_idx(dims, 2, 0, f)] = dist(rng);
-        }
+        for (int j = 0; j < dims[1]; ++j)
+            vx[i * dims[1] + j] = dist(rng);
     for (int i = 0; i < dims[0]; ++i)
-        for (int j = 1; j < dims[1]; ++j) {
-            int f[2] = {i, j};
-            vy[face_idx(dims, 2, 1, f)] = dist(rng);
-        }
+        for (int j = 1; j < dims[1]; ++j)
+            vy[i * (dims[1] + 1) + j] = dist(rng);
 
-    Solver solver(s);
-    solver.step(1.0f / 24.0f);
+    cpu::step(s, *arena.scratch, 1.0f / 24.0f);
 
-    EXPECT_LT(max_div_2d(dims, vx, vy), 1e-3f);
+    EXPECT_LT(max_div_2d(8, 8, vx, vy), 1e-3f);
 }

@@ -1,19 +1,11 @@
 #include <gtest/gtest.h>
-#include <stdexcept>
-#include "state.hpp"
-#include "solver.hpp"
+#include "arena.hpp"
+#include "cpu/step.hpp"
 
 using namespace slipstream;
 
 TEST(Scaffolding, CpuSolverStepsWithoutError) {
     int dims[] = {8, 8};
-    CpuState cs(2, dims);
-    Solver solver(cs.s);
-    solver.step(0.1f);
-}
-
-TEST(Scaffolding, GpuBackendThrows) {
-    int dims[] = {8, 8};
-    CpuState cs(2, dims);
-    EXPECT_THROW(Solver(cs.s, Backend::GPU), std::runtime_error);
+    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
+    cpu::step(arena.state, *arena.scratch, 0.1f);
 }
