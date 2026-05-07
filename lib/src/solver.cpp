@@ -2,91 +2,90 @@
 #include "cpu/advect.hpp"
 #include "cpu/project.hpp"
 
+#include <algorithm>
 #include <stdexcept>
 #include <vector>
 
 namespace slipstream {
 
 struct Solver::Impl {
-    State*  state   = nullptr;
-    Backend backend = Backend::CPU;
+    State   s;
+    Backend backend       = Backend::CPU;
+    int     max_iterations = 100;
+    float   tolerance      = 1e-3f;
 
     std::vector<float> pressure;
     std::vector<float> scratch;
-    int   max_iterations = 100;
-    float tolerance      = 1e-3f;
 };
 
-Solver::Solver(State& state, Backend backend) {
+Solver::Solver(State state, Backend backend) {
     if (backend == Backend::GPU)
-        throw std::runtime_error("UNSUPPORTED_BACKEND");
-
-    state.validate();
+        throw std::runtime_error("GPU solver pipeline not yet implemented");
 
     impl_ = std::make_unique<Impl>();
-    impl_->state   = &state;
+    impl_->s       = state;
     impl_->backend = backend;
-    impl_->pressure.resize(state.total, 0.0f);
 
-    int max_faces = 1;
-    for (int d = 0; d < state.ndim; ++d) {
-        int faces = 1;
-        for (int e = 0; e < state.ndim; ++e)
-            faces *= (d == e) ? state.shape[e] + 1 : state.shape[e];
-        max_faces = std::max(max_faces, faces);
-    }
+    int total = 1;
+    for (int d = 0; d < state.n_dims; ++d) total *= state.dims[d];
+    impl_->pressure.resize(total, 0.0f);
+
+    int Nx = state.dims[0], Ny = state.dims[1];
+    int max_faces = std::max((Nx + 1) * Ny, Nx * (Ny + 1));
     impl_->scratch.resize(max_faces, 0.0f);
 }
 
 Solver::~Solver() = default;
 
 void Solver::step(float dt) {
-    State& state = *impl_->state;
-    auto density = state.density;
-    if (density.empty())
+    const State& s = impl_->s;
+    if (!s.density)
         throw std::runtime_error("step: density field not set");
 
-    if (!state.emitter_masks.empty()) {
-        int n = (int)state.emitter_densities.size();
-        for (int e = 0; e < n; ++e) {
-            for (int c = 0; c < state.total; ++c) {
-                if (state.emitter_masks[e * state.total + c]) {
-                    density[c] = state.emitter_densities[e];
-                    if (!state.temperature.empty() && !state.emitter_temperatures.empty())
-                        state.temperature[c] = state.emitter_temperatures[e];
+    int Nx    = s.dims[0];
+    int Ny    = s.dims[1];
+    int total = Nx * Ny;
+
+    if (s.n_emitters > 0 && s.emitter_masks) {
+        for (int e = 0; e < s.n_emitters; ++e) {
+            for (int c = 0; c < total; ++c) {
+                if (s.emitter_masks[e * total + c]) {
+                    s.density[c] = s.emitter_densities[e];
+                    if (s.temperature && s.emitter_temperatures)
+                        s.temperature[c] = s.emitter_temperatures[e];
                 }
             }
         }
     }
 
-    if (!state.velocity.empty()) {
-        cpu::advect_scalar(state.shape, density, impl_->scratch, state.velocity, dt);
-        std::copy(impl_->scratch.begin(), impl_->scratch.begin() + state.total, density.begin());
+    if (s.v) {
+        float* scratch = impl_->scratch.data();
 
-        if (!state.temperature.empty()) {
-            cpu::advect_scalar(state.shape, state.temperature, impl_->scratch, state.velocity, dt);
-            std::copy(impl_->scratch.begin(), impl_->scratch.begin() + state.total,
-                      state.temperature.begin());
+        cpu::advect_scalar(s, s.density, scratch, dt);
+        std::copy(scratch, scratch + total, s.density);
+
+        if (s.temperature) {
+            cpu::advect_scalar(s, s.temperature, scratch, dt);
+            std::copy(scratch, scratch + total, s.temperature);
         }
 
-        cpu::advect_velocity(state.shape, state.velocity, impl_->scratch, dt);
+        cpu::advect_velocity(s, scratch, dt);
 
-        if (state.buoyancy != 0.0f && !state.temperature.empty()) {
-            int Nx = state.shape[0], Ny = state.shape[1];
+        if (s.buoyancy != 0.0f && s.temperature) {
             for (int i = 1; i < Nx; ++i)
                 for (int j = 0; j < Ny; ++j) {
-                    float t_avg = 0.5f * (state.temperature[(i-1)*Ny + j]
-                                        + state.temperature[i*Ny + j]);
-                    state.velocity[0][i*Ny + j] += state.buoyancy * t_avg * dt;
+                    float t_avg = 0.5f * (s.temperature[(i - 1) * Ny + j]
+                                        + s.temperature[ i      * Ny + j]);
+                    s.v[i * Ny + j] += s.buoyancy * t_avg * dt;
                 }
         }
 
-        if (state.cooling != 0.0f)
-            for (float& t : state.temperature)
-                t *= (1.0f - state.cooling * dt);
+        if (s.cooling != 0.0f && s.temperature) {
+            for (int c = 0; c < total; ++c)
+                s.temperature[c] *= (1.0f - s.cooling * dt);
+        }
 
-        cpu::project(state.shape, state.velocity, state.obstacle,
-                     impl_->pressure, impl_->max_iterations, impl_->tolerance);
+        cpu::project(s, impl_->pressure.data(), impl_->max_iterations, impl_->tolerance);
     }
 }
 

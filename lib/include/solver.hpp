@@ -9,7 +9,7 @@ enum class Backend { CPU, GPU };
 
 class Solver {
 public:
-    Solver(State& state, Backend backend = Backend::CPU);
+    Solver(State state, Backend backend = Backend::CPU);
     ~Solver();
 
     Solver(const Solver&)            = delete;

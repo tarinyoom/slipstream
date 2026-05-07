@@ -1,20 +1,10 @@
 #include "advect.hpp"
 
-#include <span>
-#include <vector>
-
 namespace slipstream::gpu {
 
-struct DeviceAdvectArgs {
-    const float* density;
-    const float* vx;
-    const float* vy;
-    float*       scratch;
-    int   Nx, Ny;
-    float dt;
-};
-
-__device__ float bilinear_sample_dev(const float* v, int fs0, int fs1, float px, float py) {
+__device__ static float bilinear_sample_dev(const float* v, int fs0, int fs1,
+                                             float px, float py)
+{
     int i0 = (int)floorf(px);
     int j0 = (int)floorf(py);
     int i1 = i0 + 1;
@@ -38,57 +28,34 @@ __device__ float bilinear_sample_dev(const float* v, int fs0, int fs1, float px,
          +          tx *          ty * v11;
 }
 
-__global__ void advect_scalar_kernel(DeviceAdvectArgs a) {
+__global__ static void advect_scalar_kernel(State s, float* scratch, float dt) {
     int j = (int)(blockIdx.x * blockDim.x + threadIdx.x);
     int i = (int)(blockIdx.y * blockDim.y + threadIdx.y);
-    if (i >= a.Nx || j >= a.Ny) return;
+    int Nx = s.dims[0];
+    int Ny = s.dims[1];
+    if (i >= Nx || j >= Ny) return;
 
-    int Ny = a.Ny;
-    float vx_c = 0.5f * (a.vx[ i      * Ny + j] + a.vx[(i + 1) * Ny + j]);
-    float vy_c = 0.5f * (a.vy[ i * (Ny + 1) + j] + a.vy[ i * (Ny + 1) + (j + 1)]);
+    const float* vx = s.v;
+    const float* vy = s.v + (Nx + 1) * Ny;
 
-    float bx = fminf(fmaxf((float)i - a.dt * vx_c, 0.0f), (float)(a.Nx - 1));
-    float by = fminf(fmaxf((float)j - a.dt * vy_c, 0.0f), (float)(a.Ny - 1));
+    float vx_c = 0.5f * (vx[ i      * Ny + j] + vx[(i + 1) * Ny + j]);
+    float vy_c = 0.5f * (vy[ i * (Ny + 1) + j] + vy[ i * (Ny + 1) + (j + 1)]);
 
-    a.scratch[i * Ny + j] = bilinear_sample_dev(a.density, a.Nx, a.Ny, bx, by);
+    float bx = fminf(fmaxf((float)i - dt * vx_c, 0.0f), (float)(Nx - 1));
+    float by = fminf(fmaxf((float)j - dt * vy_c, 0.0f), (float)(Ny - 1));
+
+    scratch[i * Ny + j] = bilinear_sample_dev(s.density, Nx, Ny, bx, by);
 }
 
-void advect_scalar(std::span<const int>                 shape,
-                   std::span<const float>               field,
-                   std::span<float>                     scratch,
-                   const std::vector<std::span<float>>& velocity,
-                   float                                dt)
-{
-    const int Nx = shape[0];
-    const int Ny = shape[1];
-
-    const size_t density_bytes = (size_t)Nx * Ny * sizeof(float);
-    const size_t vx_bytes      = (size_t)(Nx + 1) * Ny * sizeof(float);
-    const size_t vy_bytes      = (size_t)Nx * (Ny + 1) * sizeof(float);
-
-    float *d_density, *d_vx, *d_vy, *d_scratch;
-    cudaMalloc(&d_density, density_bytes);
-    cudaMalloc(&d_vx,      vx_bytes);
-    cudaMalloc(&d_vy,      vy_bytes);
-    cudaMalloc(&d_scratch, density_bytes);
-
-    cudaMemcpy(d_density, field.data(),        density_bytes, cudaMemcpyHostToDevice);
-    cudaMemcpy(d_vx,      velocity[0].data(),  vx_bytes,      cudaMemcpyHostToDevice);
-    cudaMemcpy(d_vy,      velocity[1].data(),  vy_bytes,      cudaMemcpyHostToDevice);
-
-    DeviceAdvectArgs args{ d_density, d_vx, d_vy, d_scratch, Nx, Ny, dt };
+void advect_scalar(State s, float* d_scratch, float dt) {
+    int h_dims[2];
+    cudaMemcpy(h_dims, s.dims, 2 * sizeof(int), cudaMemcpyDeviceToHost);
+    int Nx = h_dims[0], Ny = h_dims[1];
 
     dim3 block(16, 16);
     dim3 grid((Ny + 15) / 16, (Nx + 15) / 16);
-    advect_scalar_kernel<<<grid, block>>>(args);
+    advect_scalar_kernel<<<grid, block>>>(s, d_scratch, dt);
     cudaDeviceSynchronize();
-
-    cudaMemcpy(scratch.data(), d_scratch, density_bytes, cudaMemcpyDeviceToHost);
-
-    cudaFree(d_density);
-    cudaFree(d_vx);
-    cudaFree(d_vy);
-    cudaFree(d_scratch);
 }
 
 } // namespace slipstream::gpu

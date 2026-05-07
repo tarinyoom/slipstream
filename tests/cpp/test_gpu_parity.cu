@@ -1,7 +1,9 @@
 #include <gtest/gtest.h>
 #include <cmath>
+#include <cstring>
 #include <vector>
 
+#include "state.hpp"
 #include "cpu/advect.hpp"
 #include "gpu/advect.hpp"
 
@@ -11,44 +13,47 @@ TEST(GpuParity, AdvectScalar) {
     constexpr int   Nx = 32;
     constexpr int   Ny = 32;
     constexpr float dt = 0.1f;
+    int dims[] = {Nx, Ny};
 
-    std::vector<float> density((size_t)Nx * Ny);
-    std::vector<float> vx((size_t)(Nx + 1) * Ny);
-    std::vector<float> vy((size_t)Nx * (Ny + 1));
+    CpuState cpu(2, dims);
+    {
+        State& s = cpu.s;
+        float* vx = s.v;
+        float* vy = s.v + (Nx + 1) * Ny;
 
-    for (int i = 0; i < Nx; ++i)
-        for (int j = 0; j < Ny; ++j) {
-            float dx = (float)i - 15.5f;
-            float dy = (float)j - 15.5f;
-            density[i * Ny + j] = expf(-(dx * dx + dy * dy) / 32.0f);
-        }
+        for (int i = 0; i < Nx; ++i)
+            for (int j = 0; j < Ny; ++j) {
+                float dx = (float)i - 15.5f;
+                float dy = (float)j - 15.5f;
+                s.density[i * Ny + j] = expf(-(dx * dx + dy * dy) / 32.0f);
+            }
 
-    for (int i = 0; i <= Nx; ++i)
-        for (int j = 0; j < Ny; ++j)
-            vx[i * Ny + j] = 0.5f * sinf((float)j * 3.14159f / (float)Ny);
+        for (int i = 0; i <= Nx; ++i)
+            for (int j = 0; j < Ny; ++j)
+                vx[i * Ny + j] = 0.5f * sinf((float)j * 3.14159f / (float)Ny);
 
-    for (int i = 0; i < Nx; ++i)
-        for (int j = 0; j <= Ny; ++j)
-            vy[i * (Ny + 1) + j] = 0.5f * sinf((float)i * 3.14159f / (float)Nx);
+        for (int i = 0; i < Nx; ++i)
+            for (int j = 0; j <= Ny; ++j)
+                vy[i * (Ny + 1) + j] = 0.5f * sinf((float)i * 3.14159f / (float)Nx);
+    }
 
-    std::vector<std::span<float>> velocity = {
-        std::span<float>(vx),
-        std::span<float>(vy)
-    };
+    std::vector<float> cpu_scratch(Nx * Ny, 0.0f);
+    cpu::advect_scalar(cpu.s, cpu.s.density, cpu_scratch.data(), dt);
 
-    int shape[] = {Nx, Ny};
-    std::span<const int>   shape_span(shape, 2);
-    std::span<const float> field_span(density);
+    GpuState gpu(2, dims);
+    upload(cpu, gpu);
 
-    std::vector<float> cpu_scratch((size_t)Nx * Ny);
-    std::vector<float> gpu_scratch((size_t)Nx * Ny);
+    float* d_scratch;
+    cudaMalloc(&d_scratch, Nx * Ny * sizeof(float));
+    gpu::advect_scalar(gpu.s, d_scratch, dt);
 
-    cpu::advect_scalar(shape_span, field_span, std::span<float>(cpu_scratch), velocity, dt);
-    gpu::advect_scalar(shape_span, field_span, std::span<float>(gpu_scratch), velocity, dt);
+    std::vector<float> gpu_result(Nx * Ny, 0.0f);
+    cudaMemcpy(gpu_result.data(), d_scratch, Nx * Ny * sizeof(float), cudaMemcpyDeviceToHost);
+    cudaFree(d_scratch);
 
     float max_diff = 0.0f;
     for (int k = 0; k < Nx * Ny; ++k)
-        max_diff = std::max(max_diff, std::abs(cpu_scratch[k] - gpu_scratch[k]));
+        max_diff = std::max(max_diff, std::abs(cpu_scratch[k] - gpu_result[k]));
 
     EXPECT_LT(max_diff, 1e-4f) << "max delta: " << max_diff;
 }

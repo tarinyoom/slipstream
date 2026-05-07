@@ -6,10 +6,8 @@
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
-#include <memory>
 #include <span>
 #include <string>
-#include <vector>
 
 using namespace slipstream;
 
@@ -67,47 +65,35 @@ static int run_single_emitter(int argc, char** argv) {
     while (output_dir.size() > 1 && output_dir.back() == '/')
         output_dir.pop_back();
 
-    int shape[] = {nx, ny};
-    State state(shape, 2);
+    int dims[] = {nx, ny};
+    CpuState cs(2, dims, 1);
+    State& s = cs.s;
 
-    std::vector<float> density_buf(nx * ny, 0.0f);
-    std::vector<float> temperature_buf(nx * ny, 0.0f);
-    std::vector<float> vx_buf((nx + 1) * ny, 0.0f);
-    std::vector<float> vy_buf(nx * (ny + 1), 0.0f);
+    s.buoyancy = buoyancy;
+    s.cooling  = cooling;
 
-    state.density     = std::span<float>(density_buf);
-    state.temperature = std::span<float>(temperature_buf);
-    state.velocity    = {std::span<float>(vx_buf), std::span<float>(vy_buf)};
-    state.buoyancy    = buoyancy;
-    state.cooling     = cooling;
-
-    auto em_mask_arr = std::make_unique<bool[]>((size_t)nx * ny);
-    std::fill(em_mask_arr.get(), em_mask_arr.get() + nx * ny, false);
     const int cx = nx / 2, cy = ny / 2;
+    bool* masks = const_cast<bool*>(s.emitter_masks);
     for (int i = cx - 2; i < cx + 2; ++i)
         for (int j = cy - 2; j < cy + 2; ++j)
-            em_mask_arr[i * ny + j] = true;
-    std::vector<float> em_dens  = {emitter_dens};
-    std::vector<float> em_temps = {emitter_temp};
-
-    state.emitter_masks        = std::span<const bool>(em_mask_arr.get(), (size_t)nx * ny);
-    state.emitter_densities    = std::span<const float>(em_dens);
-    state.emitter_temperatures = std::span<const float>(em_temps);
+            masks[i * ny + j] = true;
+    const_cast<float*>(s.emitter_densities)[0]    = emitter_dens;
+    const_cast<float*>(s.emitter_temperatures)[0] = emitter_temp;
 
     std::filesystem::create_directories(output_dir);
 
-    Solver solver(state);
+    Solver solver(s);
 
-    for (int s = 0; s < steps; ++s) {
+    for (int step = 0; step < steps; ++step) {
         solver.step(dt);
 
-        float max_d = *std::max_element(density_buf.begin(), density_buf.end());
+        float max_d = *std::max_element(s.density, s.density + nx * ny);
 
         char path[512];
-        std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", output_dir.c_str(), s);
-        write_ppm(path, density_buf, nx, ny, vmax, scale);
+        std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", output_dir.c_str(), step);
+        write_ppm(path, std::span<const float>(s.density, nx * ny), nx, ny, vmax, scale);
 
-        std::printf("frame %04d  max=%.4f\n", s, max_d);
+        std::printf("frame %04d  max=%.4f\n", step, max_d);
     }
 
     return 0;

@@ -19,17 +19,21 @@ endif()
 find_package(GTest CONFIG REQUIRED)
 
 add_library(slipstream_core SHARED
-    lib/src/state.cpp
     lib/src/solver.cpp
+    lib/src/cpu/memory.cpp
     lib/src/cpu/advect.cpp
     lib/src/cpu/project.cpp
 )
 target_include_directories(slipstream_core PUBLIC lib/include)
+target_include_directories(slipstream_core PRIVATE lib/src)
 target_compile_options(slipstream_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
 
 if(SLIPSTREAM_BUILD_CUDA)
-    target_sources(slipstream_core PRIVATE lib/src/gpu/advect.cu)
-    target_include_directories(slipstream_core PRIVATE lib/src)
+    target_sources(slipstream_core PRIVATE
+        lib/src/gpu/memory.cu
+        lib/src/gpu/transfer.cu
+        lib/src/gpu/advect.cu
+    )
     set_target_properties(slipstream_core PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 

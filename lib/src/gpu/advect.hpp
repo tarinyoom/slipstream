@@ -1,14 +1,9 @@
 #pragma once
 
-#include <span>
-#include <vector>
+#include "state.hpp"
 
 namespace slipstream::gpu {
 
-void advect_scalar(std::span<const int>                 shape,
-                   std::span<const float>               field,
-                   std::span<float>                     scratch,
-                   const std::vector<std::span<float>>& velocity,
-                   float                                dt);
+void advect_scalar(State s, float* d_scratch, float dt);
 
 } // namespace slipstream::gpu

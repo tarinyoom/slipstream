@@ -1,31 +1,49 @@
 #pragma once
 
-#include <span>
-#include <vector>
-
 namespace slipstream {
 
 struct State {
-    std::vector<int> shape;
-    int ndim  = 0;
-    int total = 0;
+    float* density;
+    float* v;            // (Nx+1)*Ny + Nx*(Ny+1)  — vx then vy, one flat buffer
+    float* temperature;
 
-    std::span<float>              density;
-    std::vector<std::span<float>> velocity;
-    std::span<float>              temperature;
-    std::span<const bool>  obstacle;
-    std::span<const bool>  emitter_masks;
-    std::span<const float> emitter_densities;
-    std::span<const float> emitter_temperatures;
+    const bool*  obstacle;
+    const bool*  emitter_masks;
+    const float* emitter_densities;
+    const float* emitter_temperatures;
 
-    float viscosity = 0.0f;
-    float buoyancy  = 0.0f;
-    float cooling   = 0.0f;
-    float vorticity = 0.0f;
+    int  n_dims;
+    int* dims;
+    int  n_emitters;
 
-    explicit State(const int* shape, int ndim);
-
-    void validate() const;
+    float viscosity, buoyancy, cooling, vorticity;
 };
+
+State alloc_cpu_state(int n_dims, const int* dims, int n_emitters = 0);
+void  free_cpu_state(State& s);
+
+State alloc_gpu_state(int n_dims, const int* dims, int n_emitters = 0);
+void  free_gpu_state(State& s);
+
+struct CpuState {
+    State s;
+    CpuState(int n_dims, const int* dims, int n_emitters = 0)
+        : s(alloc_cpu_state(n_dims, dims, n_emitters)) {}
+    ~CpuState() { free_cpu_state(s); }
+    CpuState(const CpuState&)            = delete;
+    CpuState& operator=(const CpuState&) = delete;
+};
+
+struct GpuState {
+    State s;
+    GpuState(int n_dims, const int* dims, int n_emitters = 0)
+        : s(alloc_gpu_state(n_dims, dims, n_emitters)) {}
+    ~GpuState() { free_gpu_state(s); }
+    GpuState(const GpuState&)            = delete;
+    GpuState& operator=(const GpuState&) = delete;
+};
+
+void upload(const CpuState& src, GpuState& dst);
+void download(const GpuState& src, CpuState& dst);
 
 } // namespace slipstream

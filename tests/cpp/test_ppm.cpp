@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <cstdio>
 #include <cstdint>
-#include <span>
 #include <string>
 #include <vector>
 
@@ -75,32 +74,26 @@ TEST(PPM, KnownValueMapsToLUTEntry) {
 
 TEST(PPM, DensityAdvectsCrossFrames) {
     const int Nx = 32, Ny = 32;
-    int shape[] = {Nx, Ny};
-    State state(shape, 2);
+    int dims[] = {Nx, Ny};
+    CpuState cs(2, dims, 1);
+    State& s = cs.s;
 
-    std::vector<float> density_buf(Nx * Ny, 0.0f);
-    std::vector<float> vx_buf((Nx + 1) * Ny, 1.0f);
-    std::vector<float> vy_buf(Nx * (Ny + 1), 0.0f);
+    float* vx = s.v;
+    std::fill(vx, vx + (Nx + 1) * Ny, 1.0f);
 
-    bool em_mask_data[32 * 32] = {};
+    bool* masks = const_cast<bool*>(s.emitter_masks);
     for (int j = 0; j < Ny; ++j)
-        em_mask_data[0 * Ny + j] = true;
-    std::vector<float> em_dens = {1.0f};
+        masks[0 * Ny + j] = true;
+    const_cast<float*>(s.emitter_densities)[0] = 1.0f;
 
-    state.density           = std::span<float>(density_buf);
-    state.velocity          = {std::span<float>(vx_buf), std::span<float>(vy_buf)};
-    state.emitter_masks     = std::span<const bool>(em_mask_data, (size_t)Nx * Ny);
-    state.emitter_densities = std::span<const float>(em_dens);
-
-    Solver solver(state);
-
+    Solver solver(s);
     solver.step(1.0f);
 
     auto com_x = [&]() {
         double sum_x = 0.0, sum_w = 0.0;
         for (int i = 0; i < Nx; ++i)
             for (int j = 0; j < Ny; ++j) {
-                float d = density_buf[i * Ny + j];
+                float d = s.density[i * Ny + j];
                 sum_x += d * i;
                 sum_w += d;
             }
@@ -109,7 +102,7 @@ TEST(PPM, DensityAdvectsCrossFrames) {
 
     double com0 = com_x();
 
-    for (int s = 1; s < 8; ++s)
+    for (int step = 1; step < 8; ++step)
         solver.step(1.0f);
 
     double com8 = com_x();

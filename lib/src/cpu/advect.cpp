@@ -2,14 +2,12 @@
 
 #include <algorithm>
 #include <cmath>
-#include <span>
-#include <vector>
 
 namespace slipstream::cpu {
 
 namespace {
 
-float bilinear_sample(std::span<const float> v, const int fs[2], float px, float py) {
+float bilinear_sample(const float* v, const int fs[2], float px, float py) {
     int i0 = (int)std::floor(px);
     int j0 = (int)std::floor(py);
     int i1 = i0 + 1;
@@ -33,20 +31,18 @@ float bilinear_sample(std::span<const float> v, const int fs[2], float px, float
          +          tx *          ty * v11;
 }
 
-float safe_get(std::span<const float> v, const int fs[2], int a, int b) {
+float safe_get(const float* v, const int fs[2], int a, int b) {
     if (a < 0 || a >= fs[0] || b < 0 || b >= fs[1]) return 0.0f;
     return v[a * fs[1] + b];
 }
 
 } // anonymous namespace
 
-void advect_velocity(std::span<const int>           shape,
-                     std::vector<std::span<float>>& velocity,
-                     std::span<float>               scratch,
-                     float                          dt)
-{
-    const int Nx = shape[0];
-    const int Ny = shape[1];
+void advect_velocity(const State& s, float* scratch, float dt) {
+    const int Nx = s.dims[0];
+    const int Ny = s.dims[1];
+
+    float* vel[2] = { s.v, s.v + (Nx + 1) * Ny };
 
     for (int dim = 0; dim < 2; ++dim) {
         const int other = 1 - dim;
@@ -56,17 +52,14 @@ void advect_velocity(std::span<const int>           shape,
         int fs_other[2] = { other == 0 ? Nx + 1 : Nx,
                             other == 1 ? Ny + 1 : Ny };
 
-        std::span<const float> vd    (velocity[dim  ].data(), velocity[dim  ].size());
-        std::span<const float> vother(velocity[other].data(), velocity[other].size());
-
-        const int total = fs[0] * fs[1];
+        const float* vd     = vel[dim];
+        const float* vother = vel[other];
+        const int    total  = fs[0] * fs[1];
 
         for (int i = 0; i < fs[0]; ++i) {
             for (int j = 0; j < fs[1]; ++j) {
-                float vd_here;
+                float vd_here = vd[i * fs[1] + j];
                 float vo_here;
-
-                vd_here = vd[i * fs[1] + j];
 
                 if (dim == 0) {
                     vo_here = 0.25f * (safe_get(vother, fs_other, i - 1, j    )
@@ -90,22 +83,17 @@ void advect_velocity(std::span<const int>           shape,
             }
         }
 
-        std::copy(scratch.begin(), scratch.begin() + total, velocity[dim].begin());
+        std::copy(scratch, scratch + total, vel[dim]);
     }
 }
 
-void advect_scalar(std::span<const int>                       shape,
-                   std::span<const float>                     field,
-                   std::span<float>                           scratch,
-                   const std::vector<std::span<float>>&       velocity,
-                   float                                      dt)
-{
-    const int Nx = shape[0];
-    const int Ny = shape[1];
+void advect_scalar(const State& s, const float* field, float* scratch, float dt) {
+    const int Nx = s.dims[0];
+    const int Ny = s.dims[1];
     int cs[2] = {Nx, Ny};
 
-    const float* vx = velocity[0].data();
-    const float* vy = velocity[1].data();
+    const float* vx = s.v;
+    const float* vy = s.v + (Nx + 1) * Ny;
 
     for (int i = 0; i < Nx; ++i) {
         for (int j = 0; j < Ny; ++j) {

@@ -9,31 +9,27 @@ using namespace slipstream;
 
 TEST(Buoyancy, ImpulseFromRest) {
     const int Nx = 8, Ny = 8;
-    int shape[] = {Nx, Ny};
-    State state(shape, 2);
+    int dims[] = {Nx, Ny};
+    CpuState cs(2, dims);
+    State& s = cs.s;
 
-    std::vector<float> density_buf(Nx * Ny, 0.0f);
-    std::vector<float> temp_buf(Nx * Ny, 1.0f);
-    std::vector<float> vx_buf((Nx + 1) * Ny, 0.0f);
-    std::vector<float> vy_buf(Nx * (Ny + 1), 0.0f);
+    std::fill(s.temperature, s.temperature + Nx * Ny, 1.0f);
+    s.buoyancy = 1.0f;
 
-    state.density     = density_buf;
-    state.temperature = temp_buf;
-    state.velocity    = {std::span<float>(vx_buf), std::span<float>(vy_buf)};
-    state.buoyancy    = 1.0f;
-
-    Solver solver(state, Backend::CPU);
+    Solver solver(s);
     solver.step(1.0f);
 
+    float* vx = s.v;
     for (int i = 1; i < Nx; ++i)
         for (int j = 0; j < Ny; ++j)
-            EXPECT_GT(vx_buf[i * Ny + j], 0.0f);
+            EXPECT_GT(vx[i * Ny + j], 0.0f);
 
+    float* vy = s.v + (Nx + 1) * Ny;
     float max_div = 0.0f;
     for (int i = 0; i < Nx; ++i)
         for (int j = 0; j < Ny; ++j) {
-            float div = vx_buf[(i+1)*Ny + j] - vx_buf[i*Ny + j]
-                      + vy_buf[i*(Ny+1) + j+1] - vy_buf[i*(Ny+1) + j];
+            float div = vx[(i+1)*Ny + j] - vx[i*Ny + j]
+                      + vy[i*(Ny+1) + j+1] - vy[i*(Ny+1) + j];
             max_div = std::max(max_div, std::abs(div));
         }
     EXPECT_LT(max_div, 1e-3f);
@@ -41,63 +37,46 @@ TEST(Buoyancy, ImpulseFromRest) {
 
 TEST(Buoyancy, CoolingDecay) {
     const int Nx = 8, Ny = 8;
-    int shape[] = {Nx, Ny};
-    State state(shape, 2);
+    int dims[] = {Nx, Ny};
+    CpuState cs(2, dims);
+    State& s = cs.s;
 
-    std::vector<float> density_buf(Nx * Ny, 0.0f);
-    std::vector<float> temp_buf(Nx * Ny, 1.0f);
-    std::vector<float> vx_buf((Nx + 1) * Ny, 0.0f);
-    std::vector<float> vy_buf(Nx * (Ny + 1), 0.0f);
+    std::fill(s.temperature, s.temperature + Nx * Ny, 1.0f);
+    s.cooling = 0.5f;
 
-    state.density     = density_buf;
-    state.temperature = temp_buf;
-    state.velocity    = {std::span<float>(vx_buf), std::span<float>(vy_buf)};
-    state.cooling     = 0.5f;
-
-    Solver solver(state, Backend::CPU);
+    Solver solver(s);
     for (int k = 1; k <= 4; ++k) {
         solver.step(1.0f);
         float expected = std::pow(0.5f, (float)k);
-        EXPECT_NEAR(temp_buf[0], expected, 1e-5f);
+        EXPECT_NEAR(s.temperature[0], expected, 1e-5f);
     }
 }
 
 TEST(Buoyancy, PlumeRises) {
     const int N = 32;
-    int shape[] = {N, N};
-    State state(shape, 2);
+    int dims[] = {N, N};
+    CpuState cs(2, dims, 1);
+    State& s = cs.s;
 
-    std::vector<float> density_buf(N * N, 0.0f);
-    std::vector<float> temp_buf(N * N, 0.0f);
-    std::vector<float> vx_buf((N + 1) * N, 0.0f);
-    std::vector<float> vy_buf(N * (N + 1), 0.0f);
-
-    std::vector<char> em_mask_buf(N * N, 0);
     const int cx = N / 2;
+    bool* masks = const_cast<bool*>(s.emitter_masks);
     for (int i = 0; i < 4; ++i)
         for (int j = cx - 2; j < cx + 2; ++j)
-            em_mask_buf[i * N + j] = 1;
-    auto em_mask = reinterpret_cast<const bool*>(em_mask_buf.data());
+            masks[i * N + j] = true;
 
-    std::vector<float> em_dens  = {1.0f};
-    std::vector<float> em_temps = {200.0f};
+    const_cast<float*>(s.emitter_densities)[0]    = 1.0f;
+    const_cast<float*>(s.emitter_temperatures)[0] = 200.0f;
 
-    state.density              = density_buf;
-    state.temperature          = temp_buf;
-    state.velocity             = {std::span<float>(vx_buf), std::span<float>(vy_buf)};
-    state.emitter_masks        = std::span<const bool>(em_mask, N * N);
-    state.emitter_densities    = em_dens;
-    state.emitter_temperatures = em_temps;
-    state.buoyancy             = 15.0f;
-    state.cooling              = 0.5f;
+    s.buoyancy = 15.0f;
+    s.cooling  = 0.5f;
 
-    Solver solver(state, Backend::CPU);
+    Solver solver(s);
 
     auto centre_of_mass = [&]() {
         float sum_d = 0.0f, sum_di = 0.0f;
         for (int i = 0; i < N; ++i)
             for (int j = 0; j < N; ++j) {
-                float d = density_buf[i * N + j];
+                float d = s.density[i * N + j];
                 sum_d  += d;
                 sum_di += d * (float)i;
             }
