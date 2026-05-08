@@ -21,11 +21,11 @@ find_package(GTest CONFIG REQUIRED)
 
 add_library(slipstream_core SHARED
     lib/src/arena.cpp
-    lib/src/cpu/advect.cpp
-    lib/src/cpu/project.cpp
-    lib/src/cpu/inject.cpp
-    lib/src/cpu/buoyancy.cpp
-    lib/src/cpu/cooling.cpp
+    lib/src/cpu/compute_advection.cpp
+    lib/src/cpu/compute_projection.cpp
+    lib/src/cpu/compute_injection.cpp
+    lib/src/cpu/compute_buoyancy.cpp
+    lib/src/cpu/compute_cooling.cpp
     lib/src/cpu/step.cpp
 )
 target_include_directories(slipstream_core PUBLIC lib/include)
@@ -36,11 +36,11 @@ if(SLIPSTREAM_BUILD_CUDA)
     target_sources(slipstream_core PRIVATE
         lib/src/gpu/memory.cpp
         lib/src/gpu/transfer.cpp
-        lib/src/gpu/advect.cu
-        lib/src/gpu/inject.cu
-        lib/src/gpu/buoyancy.cu
-        lib/src/gpu/cooling.cu
-        lib/src/gpu/project.cu
+        lib/src/gpu/compute_advection.cu
+        lib/src/gpu/compute_injection.cu
+        lib/src/gpu/compute_buoyancy.cu
+        lib/src/gpu/compute_cooling.cu
+        lib/src/gpu/compute_projection.cu
         lib/src/gpu/step.cu
     )
     target_compile_definitions(slipstream_core PUBLIC SLIPSTREAM_HAS_CUDA=1)

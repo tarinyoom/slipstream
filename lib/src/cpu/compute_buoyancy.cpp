@@ -1,9 +1,9 @@
-#include "buoyancy.hpp"
+#include "compute_buoyancy.hpp"
 
 namespace slipstream::cpu {
 
-void apply_buoyancy(int nx, int ny, float buoyancy, float dt,
-                    const float* temperature, float* vx)
+void compute_buoyancy(int nx, int ny, float buoyancy, float dt,
+                      const float* temperature, float* vx)
 {
     for (int i = 1; i < nx; ++i)
         for (int j = 0; j < ny; ++j) {

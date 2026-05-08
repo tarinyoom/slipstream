@@ -4,7 +4,7 @@
 #include <random>
 #include <algorithm>
 #include "arena.hpp"
-#include "cpu/advect.hpp"
+#include "cpu/compute_advection.hpp"
 
 using namespace slipstream;
 
@@ -38,7 +38,7 @@ TEST(Advection, GaussianBumpTranslates) {
     std::vector<float> scratch(max_faces, 0.0f);
 
     for (int step = 0; step < steps; ++step)
-        cpu::advect_velocity(Nx, Ny, vx, vy, scratch.data(), dt);
+        cpu::compute_velocity_advection(Nx, Ny, vx, vy, scratch.data(), dt);
 
     double wx = 0.0, wy = 0.0, wsum = 0.0;
     for (int i = 0; i <= Nx; ++i)
@@ -90,7 +90,7 @@ TEST(Advection, XReflectionSymmetryPreserved) {
     std::vector<float> scratch(max_faces, 0.0f);
 
     for (int step = 0; step < 4; ++step)
-        cpu::advect_velocity(Nx, Ny, vx, vy, scratch.data(), 0.5f);
+        cpu::compute_velocity_advection(Nx, Ny, vx, vy, scratch.data(), 0.5f);
 
     for (int j = 0; j < Ny; ++j) {
         for (int i = 0; i <= Nx; ++i) {

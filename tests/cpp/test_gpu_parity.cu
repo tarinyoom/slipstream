@@ -7,17 +7,17 @@
 #include <cuda_runtime.h>
 
 #include "arena.hpp"
-#include "cpu/advect.hpp"
-#include "cpu/inject.hpp"
-#include "cpu/buoyancy.hpp"
-#include "cpu/cooling.hpp"
-#include "cpu/project.hpp"
+#include "cpu/compute_advection.hpp"
+#include "cpu/compute_injection.hpp"
+#include "cpu/compute_buoyancy.hpp"
+#include "cpu/compute_cooling.hpp"
+#include "cpu/compute_projection.hpp"
 #include "cpu/step.hpp"
-#include "gpu/advect.hpp"
-#include "gpu/inject.hpp"
-#include "gpu/buoyancy.hpp"
-#include "gpu/cooling.hpp"
-#include "gpu/project.hpp"
+#include "gpu/compute_advection.hpp"
+#include "gpu/compute_injection.hpp"
+#include "gpu/compute_buoyancy.hpp"
+#include "gpu/compute_cooling.hpp"
+#include "gpu/compute_projection.hpp"
 #include "gpu/step.hpp"
 
 using namespace slipstream;
@@ -71,14 +71,14 @@ TEST(GpuParity, AdvectScalar) {
     float* vy = cs.velocity + (Nx + 1) * Ny;
 
     std::vector<float> cpu_result(Nx * Ny);
-    cpu::advect_scalar(Nx, Ny, vx, vy, cs.density, cpu_result.data(), dt);
+    cpu::compute_scalar_advection(Nx, Ny, vx, vy, cs.density, cpu_result.data(), dt);
 
     CalculationArena gpu_arena(Backend::GPU, 2, dims, 0, true);
     copy(cpu_arena, gpu_arena);
 
     float* gvx = gpu_arena.state.velocity;
     float* gvy = gpu_arena.state.velocity + (Nx + 1) * Ny;
-    gpu::advect_scalar(Nx, Ny, gvx, gvy, gpu_arena.state.density,
+    gpu::compute_scalar_advection(Nx, Ny, gvx, gvy, gpu_arena.state.density,
                        gpu_arena.scratch->tmp, dt);
 
     auto gpu_result = d2h(gpu_arena.scratch->tmp, Nx * Ny);
@@ -105,7 +105,7 @@ TEST(GpuParity, AdvectVelocity) {
     float* cvx = cpu_arena.state.velocity;
     float* cvy = cpu_arena.state.velocity + vx_size;
     std::vector<float> scratch(std::max(vx_size, vy_size));
-    cpu::advect_velocity(Nx, Ny, cvx, cvy, scratch.data(), dt);
+    cpu::compute_velocity_advection(Nx, Ny, cvx, cvy, scratch.data(), dt);
 
     // GPU: restore original velocity, then advect
     CalculationArena gpu_arena(Backend::GPU, 2, dims, 0, true);
@@ -117,7 +117,7 @@ TEST(GpuParity, AdvectVelocity) {
 
     float* gvx = gpu_arena.state.velocity;
     float* gvy = gpu_arena.state.velocity + vx_size;
-    gpu::advect_velocity(Nx, Ny, gvx, gvy, gpu_arena.scratch->tmp, dt);
+    gpu::compute_velocity_advection(Nx, Ny, gvx, gvy, gpu_arena.scratch->tmp, dt);
 
     auto gpu_vx = d2h(gvx, vx_size);
     auto gpu_vy = d2h(gvy, vy_size);
@@ -139,7 +139,7 @@ TEST(GpuParity, InjectEmitters) {
     cs.emitter_densities[0]    = 2.5f;
     cs.emitter_temperatures[0] = 100.0f;
 
-    cpu::inject_emitters(1, Nx * Ny, cs.emitter_masks,
+    cpu::compute_injection(1, Nx * Ny, cs.emitter_masks,
                          cs.emitter_densities, cs.emitter_temperatures,
                          cs.density, cs.temperature);
 
@@ -150,7 +150,7 @@ TEST(GpuParity, InjectEmitters) {
     cudaMemset(gpu_arena.state.temperature, 0, (std::size_t)Nx * Ny * sizeof(float));
 
     PersistentState& gs = gpu_arena.state;
-    gpu::inject_emitters(1, Nx * Ny, gs.emitter_masks,
+    gpu::compute_injection(1, Nx * Ny, gs.emitter_masks,
                          gs.emitter_densities, gs.emitter_temperatures,
                          gs.density, gs.temperature);
 
@@ -172,7 +172,7 @@ TEST(GpuParity, ApplyBuoyancy) {
     fill_gaussian(cpu_arena.state.temperature, Nx, Ny);
 
     float* cvx = cpu_arena.state.velocity;
-    cpu::apply_buoyancy(Nx, Ny, buoyancy, dt, cpu_arena.state.temperature, cvx);
+    cpu::compute_buoyancy(Nx, Ny, buoyancy, dt, cpu_arena.state.temperature, cvx);
 
     CalculationArena gpu_arena(Backend::GPU, 2, dims, 0, false);
     copy(cpu_arena, gpu_arena);
@@ -187,7 +187,7 @@ TEST(GpuParity, ApplyBuoyancy) {
     }
 
     float* gvx = gpu_arena.state.velocity;
-    gpu::apply_buoyancy(Nx, Ny, buoyancy, dt, gpu_arena.state.temperature, gvx);
+    gpu::compute_buoyancy(Nx, Ny, buoyancy, dt, gpu_arena.state.temperature, gvx);
 
     auto gpu_vx = d2h(gvx, (Nx + 1) * Ny);
 
@@ -207,13 +207,13 @@ TEST(GpuParity, ApplyCooling) {
     std::vector<float> temp0(cpu_arena.state.temperature,
                               cpu_arena.state.temperature + Nx * Ny);
 
-    cpu::apply_cooling(Nx * Ny, cooling, dt, cpu_arena.state.temperature);
+    cpu::compute_cooling(Nx * Ny, cooling, dt, cpu_arena.state.temperature);
 
     CalculationArena gpu_arena(Backend::GPU, 2, dims, 0, false);
     cudaMemcpy(gpu_arena.state.temperature, temp0.data(),
                (std::size_t)Nx * Ny * sizeof(float), cudaMemcpyHostToDevice);
 
-    gpu::apply_cooling(Nx * Ny, cooling, dt, gpu_arena.state.temperature);
+    gpu::compute_cooling(Nx * Ny, cooling, dt, gpu_arena.state.temperature);
 
     auto gpu_t = d2h(gpu_arena.state.temperature, Nx * Ny);
 
@@ -238,7 +238,7 @@ TEST(GpuParity, Project) {
     float* cvx = cpu_arena.state.velocity;
     float* cvy = cpu_arena.state.velocity + vx_size;
     std::vector<float> rhs_buf(Nx * Ny, 0.0f);
-    cpu::project(Nx, Ny, cpu_arena.state.obstacle,
+    cpu::compute_projection(Nx, Ny, cpu_arena.state.obstacle,
                  cvx, cvy, cpu_arena.scratch->pressure, rhs_buf.data(),
                  100, 1e-3f);
 
@@ -250,7 +250,7 @@ TEST(GpuParity, Project) {
 
     float* gvx = gpu_arena.state.velocity;
     float* gvy = gpu_arena.state.velocity + vx_size;
-    gpu::project(Nx, Ny, gpu_arena.state.obstacle,
+    gpu::compute_projection(Nx, Ny, gpu_arena.state.obstacle,
                  gvx, gvy, gpu_arena.scratch->pressure, gpu_arena.scratch->tmp,
                  100, 1e-3f);
 

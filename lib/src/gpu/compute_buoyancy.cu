@@ -1,4 +1,4 @@
-#include "buoyancy.hpp"
+#include "compute_buoyancy.hpp"
 
 #include <cuda_runtime.h>
 
@@ -15,8 +15,8 @@ __global__ static void apply_buoyancy_kernel(int nx, int ny, float buoyancy, flo
     vx[i * ny + j] += buoyancy * t_avg * dt;
 }
 
-void apply_buoyancy(int nx, int ny, float buoyancy, float dt,
-                    const float* temperature, float* vx)
+void compute_buoyancy(int nx, int ny, float buoyancy, float dt,
+                      const float* temperature, float* vx)
 {
     if (nx < 2) return;
     dim3 block(16, 16);

@@ -1,9 +1,9 @@
 #include "step.hpp"
-#include "inject.hpp"
-#include "advect.hpp"
-#include "buoyancy.hpp"
-#include "cooling.hpp"
-#include "project.hpp"
+#include "compute_injection.hpp"
+#include "compute_advection.hpp"
+#include "compute_buoyancy.hpp"
+#include "compute_cooling.hpp"
+#include "compute_projection.hpp"
 
 #include <algorithm>
 
@@ -18,24 +18,24 @@ void step(PersistentState& s, const ScratchState& sc, float dt,
     float* vx = s.velocity;
     float* vy = s.velocity + (Nx + 1) * Ny;
 
-    inject_emitters(s.n_emitters, total, s.emitter_masks,
-                    s.emitter_densities, s.emitter_temperatures,
-                    s.density, s.temperature);
+    compute_injection(s.n_emitters, total, s.emitter_masks,
+                      s.emitter_densities, s.emitter_temperatures,
+                      s.density, s.temperature);
 
-    advect_scalar(Nx, Ny, vx, vy, s.density, sc.tmp, dt);
+    compute_scalar_advection(Nx, Ny, vx, vy, s.density, sc.tmp, dt);
     std::copy(sc.tmp, sc.tmp + total, s.density);
 
-    advect_scalar(Nx, Ny, vx, vy, s.temperature, sc.tmp, dt);
+    compute_scalar_advection(Nx, Ny, vx, vy, s.temperature, sc.tmp, dt);
     std::copy(sc.tmp, sc.tmp + total, s.temperature);
 
-    advect_velocity(Nx, Ny, vx, vy, sc.tmp, dt);
+    compute_velocity_advection(Nx, Ny, vx, vy, sc.tmp, dt);
 
-    apply_buoyancy(Nx, Ny, s.buoyancy, dt, s.temperature, vx);
+    compute_buoyancy(Nx, Ny, s.buoyancy, dt, s.temperature, vx);
 
-    apply_cooling(total, s.cooling, dt, s.temperature);
+    compute_cooling(total, s.cooling, dt, s.temperature);
 
-    project(Nx, Ny, s.obstacle, vx, vy,
-            sc.pressure, sc.tmp, max_iterations, tolerance);
+    compute_projection(Nx, Ny, s.obstacle, vx, vy,
+                       sc.pressure, sc.tmp, max_iterations, tolerance);
 }
 
 } // namespace slipstream::cpu

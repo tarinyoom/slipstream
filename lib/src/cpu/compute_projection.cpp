@@ -1,4 +1,4 @@
-#include "project.hpp"
+#include "compute_projection.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -20,9 +20,9 @@ void flat_to_ij(int ny, int flat, int& i, int& j) {
 
 } // anonymous namespace
 
-void red_black_gs(int nx, int ny, const float* obstacle,
-                  const float* rhs, float* pressure,
-                  int max_iterations, float tolerance)
+void compute_red_black_gs(int nx, int ny, const float* obstacle,
+                          const float* rhs, float* pressure,
+                          int max_iterations, float tolerance)
 {
     const int total = nx * ny;
 
@@ -82,10 +82,10 @@ void red_black_gs(int nx, int ny, const float* obstacle,
     }
 }
 
-void project(int nx, int ny, const float* obstacle,
-             float* vx, float* vy,
-             float* pressure, float* rhs_scratch,
-             int max_iterations, float tolerance)
+void compute_projection(int nx, int ny, const float* obstacle,
+                        float* vx, float* vy,
+                        float* pressure, float* rhs_scratch,
+                        int max_iterations, float tolerance)
 {
     const int total = nx * ny;
 
@@ -111,7 +111,7 @@ void project(int nx, int ny, const float* obstacle,
                        + vy[face_idx_y(ny, ci,     cj + 1)] - vy[face_idx_y(ny, ci, cj)];
     }
 
-    red_black_gs(nx, ny, obstacle, rhs_scratch, pressure, max_iterations, tolerance);
+    compute_red_black_gs(nx, ny, obstacle, rhs_scratch, pressure, max_iterations, tolerance);
 
     for (int c = 0; c < total; ++c) {
         if (obstacle && obstacle[c] != 0.0f) continue;

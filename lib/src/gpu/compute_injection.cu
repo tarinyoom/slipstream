@@ -1,4 +1,4 @@
-#include "inject.hpp"
+#include "compute_injection.hpp"
 
 #include <cuda_runtime.h>
 
@@ -21,11 +21,11 @@ __global__ static void inject_emitters_kernel(int n_emitters, int total,
     }
 }
 
-void inject_emitters(int n_emitters, int total,
-                     const float* masks,
-                     const float* emitter_densities,
-                     const float* emitter_temperatures,
-                     float* density, float* temperature)
+void compute_injection(int n_emitters, int total,
+                       const float* masks,
+                       const float* emitter_densities,
+                       const float* emitter_temperatures,
+                       float* density, float* temperature)
 {
     if (n_emitters == 0) return;
     int threads = 256;

@@ -1,4 +1,4 @@
-#include "project.hpp"
+#include "compute_projection.hpp"
 
 #include <cuda_runtime.h>
 #include <cuda/functional>
@@ -108,10 +108,10 @@ __global__ static void gradient_subtract_kernel(int nx, int ny, const float* obs
     }
 }
 
-void project(int nx, int ny, const float* obstacle,
-             float* vx, float* vy,
-             float* pressure, float* rhs_scratch,
-             int max_iterations, float tolerance)
+void compute_projection(int nx, int ny, const float* obstacle,
+                        float* vx, float* vy,
+                        float* pressure, float* rhs_scratch,
+                        int max_iterations, float tolerance)
 {
     const int total   = nx * ny;
     const int threads = 256;

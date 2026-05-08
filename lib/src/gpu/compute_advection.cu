@@ -1,4 +1,4 @@
-#include "advect.hpp"
+#include "compute_advection.hpp"
 
 #include <cuda_runtime.h>
 #include <cstddef>
@@ -54,9 +54,9 @@ __global__ static void advect_scalar_kernel(int nx, int ny,
     field_out[i * ny + j] = bilinear_sample_dev(field_in, nx, ny, bx, by);
 }
 
-void advect_scalar(int nx, int ny,
-                   const float* vx, const float* vy,
-                   const float* field_in, float* field_out, float dt)
+void compute_scalar_advection(int nx, int ny,
+                              const float* vx, const float* vy,
+                              const float* field_in, float* field_out, float dt)
 {
     dim3 block(16, 16);
     dim3 grid((ny + 15) / 16, (nx + 15) / 16);
@@ -104,7 +104,7 @@ __global__ static void advect_vy_kernel(int nx, int ny,
     scratch[i * (ny + 1) + j] = bilinear_sample_dev(vy, nx, ny + 1, bx, by);
 }
 
-void advect_velocity(int nx, int ny, float* vx, float* vy, float* scratch, float dt) {
+void compute_velocity_advection(int nx, int ny, float* vx, float* vy, float* scratch, float dt) {
     dim3 block(16, 16);
 
     dim3 grid_vx((ny + 15) / 16, (nx + 1 + 15) / 16);

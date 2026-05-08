@@ -1,4 +1,4 @@
-#include "advect.hpp"
+#include "compute_advection.hpp"
 
 #include <algorithm>
 #include <cmath>
@@ -38,7 +38,7 @@ float safe_get(const float* v, const int fs[2], int a, int b) {
 
 } // anonymous namespace
 
-void advect_velocity(int nx, int ny, float* vx, float* vy, float* scratch, float dt) {
+void compute_velocity_advection(int nx, int ny, float* vx, float* vy, float* scratch, float dt) {
     float* vel[2] = { vx, vy };
 
     for (int dim = 0; dim < 2; ++dim) {
@@ -84,9 +84,9 @@ void advect_velocity(int nx, int ny, float* vx, float* vy, float* scratch, float
     }
 }
 
-void advect_scalar(int nx, int ny,
-                   const float* vx, const float* vy,
-                   const float* field_in, float* field_out, float dt) {
+void compute_scalar_advection(int nx, int ny,
+                              const float* vx, const float* vy,
+                              const float* field_in, float* field_out, float dt) {
     int cs[2] = {nx, ny};
 
     for (int i = 0; i < nx; ++i) {
