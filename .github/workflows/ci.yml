@@ -29,3 +29,23 @@ jobs:
         run: |
           build/slipstream single_emitter --nx 16 --ny 16 --steps 5 --output /tmp/cli_smoke
           test $(ls /tmp/cli_smoke/*.ppm | wc -l) -eq 5
+
+  build-cuda:
+    runs-on: ubuntu-latest
+    container:
+      image: nvidia/cuda:12.4.0-devel-ubuntu22.04
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Install system dependencies
+        run: |
+          apt-get update
+          apt-get install -y cmake build-essential libgtest-dev
+
+      - name: Build C++ with CUDA
+        run: |
+          cmake -B build -DCMAKE_BUILD_TYPE=Release \
+            -DSLIPSTREAM_BUILD_CUDA=ON \
+            -DCMAKE_CUDA_ARCHITECTURES=all-major
+          cmake --build build

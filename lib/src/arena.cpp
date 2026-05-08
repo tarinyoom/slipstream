@@ -5,6 +5,11 @@
 #include <cstring>
 #include <stdexcept>
 
+#ifdef SLIPSTREAM_HAS_CUDA
+#include "gpu/memory.hpp"
+#include "gpu/transfer.hpp"
+#endif
+
 namespace slipstream {
 
 static std::size_t arena_buf_size(int nx, int ny, int n_emitters, bool allocate_scratch) {
@@ -29,13 +34,11 @@ static std::size_t arena_buf_size(int nx, int ny, int n_emitters, bool allocate_
     return sz;
 }
 
-CalculationArena::CalculationArena(Backend b, int n_dims, const int* dims,
+CalculationArena::CalculationArena(Backend b, [[maybe_unused]] int n_dims, const int* dims,
                                    int n_emitters, bool allocate_scratch)
     : buf(nullptr), backend(b)
 {
     assert(n_dims == 2);
-    if (b == Backend::GPU)
-        throw std::runtime_error("GPU CalculationArena not yet implemented");
 
     const int nx = dims[0];
     const int ny = dims[1];
@@ -44,7 +47,16 @@ CalculationArena::CalculationArena(Backend b, int n_dims, const int* dims,
     const int max_faces = std::max((nx + 1) * ny, nx * (ny + 1));
 
     std::size_t sz = arena_buf_size(nx, ny, n_emitters, allocate_scratch);
-    buf = new char[sz]();
+
+    if (b == Backend::GPU) {
+#ifdef SLIPSTREAM_HAS_CUDA
+        buf = gpu::gpu_alloc(sz);
+#else
+        throw std::runtime_error("GPU CalculationArena not supported in this build");
+#endif
+    } else {
+        buf = new char[sz]();
+    }
 
     char* p = buf;
     auto next = [&](int count) -> float* {
@@ -85,37 +97,57 @@ CalculationArena::CalculationArena(Backend b, int n_dims, const int* dims,
 }
 
 CalculationArena::~CalculationArena() {
+#ifdef SLIPSTREAM_HAS_CUDA
+    if (backend == Backend::GPU)
+        gpu::gpu_free(buf);
+    else
+        delete[] buf;
+#else
     delete[] buf;
+#endif
 }
 
 void copy(const CalculationArena& src, CalculationArena& dst) {
     const PersistentState& s = src.state;
-    const PersistentState& d = dst.state;
+    PersistentState&       d = dst.state;
     assert(s.nx == d.nx && s.ny == d.ny && s.n_emitters == d.n_emitters);
 
     const int total  = s.nx * s.ny;
     const int v_size = (s.nx + 1) * s.ny + s.nx * (s.ny + 1);
 
-    if (src.backend == Backend::CPU && dst.backend == Backend::CPU) {
-        std::memcpy(d.density,     s.density,     (std::size_t)total  * sizeof(float));
-        std::memcpy(d.velocity,    s.velocity,    (std::size_t)v_size * sizeof(float));
-        std::memcpy(d.temperature, s.temperature, (std::size_t)total  * sizeof(float));
-        std::memcpy(d.obstacle,    s.obstacle,    (std::size_t)total  * sizeof(float));
-        if (s.n_emitters > 0 && s.emitter_masks) {
-            std::memcpy(d.emitter_masks,        s.emitter_masks,
-                        (std::size_t)s.n_emitters * total * sizeof(float));
-            std::memcpy(d.emitter_densities,    s.emitter_densities,
-                        (std::size_t)s.n_emitters * sizeof(float));
-            std::memcpy(d.emitter_temperatures, s.emitter_temperatures,
-                        (std::size_t)s.n_emitters * sizeof(float));
-        }
-        dst.state.viscosity  = s.viscosity;
-        dst.state.buoyancy   = s.buoyancy;
-        dst.state.cooling    = s.cooling;
-        dst.state.vorticity  = s.vorticity;
-    } else {
-        throw std::runtime_error("cross-device copy not yet implemented");
+    auto do_copy = [&](void* dp, const void* sp, std::size_t sz) {
+#ifdef SLIPSTREAM_HAS_CUDA
+        if (src.backend == Backend::CPU && dst.backend == Backend::GPU)
+            gpu::memcpy_h2d(dp, sp, sz);
+        else if (src.backend == Backend::GPU && dst.backend == Backend::CPU)
+            gpu::memcpy_d2h(dp, sp, sz);
+        else if (src.backend == Backend::GPU && dst.backend == Backend::GPU)
+            gpu::memcpy_d2d(dp, sp, sz);
+        else
+            std::memcpy(dp, sp, sz);
+#else
+        std::memcpy(dp, sp, sz);
+#endif
+    };
+
+    do_copy(d.density,     s.density,     (std::size_t)total  * sizeof(float));
+    do_copy(d.velocity,    s.velocity,    (std::size_t)v_size * sizeof(float));
+    do_copy(d.temperature, s.temperature, (std::size_t)total  * sizeof(float));
+    do_copy(d.obstacle,    s.obstacle,    (std::size_t)total  * sizeof(float));
+
+    if (s.n_emitters > 0 && s.emitter_masks) {
+        do_copy(d.emitter_masks,        s.emitter_masks,
+                (std::size_t)s.n_emitters * total * sizeof(float));
+        do_copy(d.emitter_densities,    s.emitter_densities,
+                (std::size_t)s.n_emitters * sizeof(float));
+        do_copy(d.emitter_temperatures, s.emitter_temperatures,
+                (std::size_t)s.n_emitters * sizeof(float));
     }
+
+    d.viscosity  = s.viscosity;
+    d.buoyancy   = s.buoyancy;
+    d.cooling    = s.cooling;
+    d.vorticity  = s.vorticity;
 }
 
 } // namespace slipstream

@@ -18,10 +18,10 @@ std::vector<uint8_t> read_ppm_pixels(const std::string& path, int& w, int& h) {
     if (!f) return {};
     char magic[8];
     int maxval;
-    std::fscanf(f, "%7s %d %d %d", magic, &w, &h, &maxval);
+    [[maybe_unused]] int nfields = std::fscanf(f, "%7s %d %d %d", magic, &w, &h, &maxval);
     std::fgetc(f);
     std::vector<uint8_t> pixels((size_t)w * h * 3);
-    std::fread(pixels.data(), 1, pixels.size(), f);
+    [[maybe_unused]] auto nbytes = std::fread(pixels.data(), 1, pixels.size(), f);
     std::fclose(f);
     return pixels;
 }

@@ -38,19 +38,16 @@ float safe_get(const float* v, const int fs[2], int a, int b) {
 
 } // anonymous namespace
 
-void advect_velocity(const PersistentState& s, float* scratch, float dt) {
-    const int Nx = s.nx;
-    const int Ny = s.ny;
-
-    float* vel[2] = { s.velocity, s.velocity + (Nx + 1) * Ny };
+void advect_velocity(int nx, int ny, float* vx, float* vy, float* scratch, float dt) {
+    float* vel[2] = { vx, vy };
 
     for (int dim = 0; dim < 2; ++dim) {
         const int other = 1 - dim;
 
-        int fs[2]       = { dim   == 0 ? Nx + 1 : Nx,
-                            dim   == 1 ? Ny + 1 : Ny };
-        int fs_other[2] = { other == 0 ? Nx + 1 : Nx,
-                            other == 1 ? Ny + 1 : Ny };
+        int fs[2]       = { dim   == 0 ? nx + 1 : nx,
+                            dim   == 1 ? ny + 1 : ny };
+        int fs_other[2] = { other == 0 ? nx + 1 : nx,
+                            other == 1 ? ny + 1 : ny };
 
         const float* vd     = vel[dim];
         const float* vother = vel[other];
@@ -87,23 +84,20 @@ void advect_velocity(const PersistentState& s, float* scratch, float dt) {
     }
 }
 
-void advect_scalar(const PersistentState& s, const float* field, float* scratch, float dt) {
-    const int Nx = s.nx;
-    const int Ny = s.ny;
-    int cs[2] = {Nx, Ny};
+void advect_scalar(int nx, int ny,
+                   const float* vx, const float* vy,
+                   const float* field_in, float* field_out, float dt) {
+    int cs[2] = {nx, ny};
 
-    const float* vx = s.velocity;
-    const float* vy = s.velocity + (Nx + 1) * Ny;
+    for (int i = 0; i < nx; ++i) {
+        for (int j = 0; j < ny; ++j) {
+            float vx_c = 0.5f * (vx[i * ny + j] + vx[(i + 1) * ny + j]);
+            float vy_c = 0.5f * (vy[i * (ny + 1) + j] + vy[i * (ny + 1) + (j + 1)]);
 
-    for (int i = 0; i < Nx; ++i) {
-        for (int j = 0; j < Ny; ++j) {
-            float vx_c = 0.5f * (vx[i * Ny + j] + vx[(i + 1) * Ny + j]);
-            float vy_c = 0.5f * (vy[i * (Ny + 1) + j] + vy[i * (Ny + 1) + (j + 1)]);
+            float bx = std::clamp((float)i - dt * vx_c, 0.0f, (float)(nx - 1));
+            float by = std::clamp((float)j - dt * vy_c, 0.0f, (float)(ny - 1));
 
-            float bx = std::clamp((float)i - dt * vx_c, 0.0f, (float)(Nx - 1));
-            float by = std::clamp((float)j - dt * vy_c, 0.0f, (float)(Ny - 1));
-
-            scratch[i * Ny + j] = bilinear_sample(field, cs, bx, by);
+            field_out[i * ny + j] = bilinear_sample(field_in, cs, bx, by);
         }
     }
 }

@@ -14,6 +14,7 @@ if(SLIPSTREAM_BUILD_CUDA)
     enable_language(CUDA)
     set(CMAKE_CUDA_STANDARD 20)
     set(CMAKE_CUDA_STANDARD_REQUIRED ON)
+    find_package(CUDAToolkit REQUIRED)
 endif()
 
 find_package(GTest CONFIG REQUIRED)
@@ -22,6 +23,9 @@ add_library(slipstream_core SHARED
     lib/src/arena.cpp
     lib/src/cpu/advect.cpp
     lib/src/cpu/project.cpp
+    lib/src/cpu/inject.cpp
+    lib/src/cpu/buoyancy.cpp
+    lib/src/cpu/cooling.cpp
     lib/src/cpu/step.cpp
 )
 target_include_directories(slipstream_core PUBLIC lib/include)
@@ -30,8 +34,17 @@ target_compile_options(slipstream_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -
 
 if(SLIPSTREAM_BUILD_CUDA)
     target_sources(slipstream_core PRIVATE
+        lib/src/gpu/memory.cpp
+        lib/src/gpu/transfer.cpp
         lib/src/gpu/advect.cu
+        lib/src/gpu/inject.cu
+        lib/src/gpu/buoyancy.cu
+        lib/src/gpu/cooling.cu
+        lib/src/gpu/project.cu
+        lib/src/gpu/step.cu
     )
+    target_compile_definitions(slipstream_core PUBLIC SLIPSTREAM_HAS_CUDA=1)
+    target_link_libraries(slipstream_core PRIVATE CUDA::cudart)
     set_target_properties(slipstream_core PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
 endif()
 

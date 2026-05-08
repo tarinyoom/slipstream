@@ -2,7 +2,7 @@
 
 #include <algorithm>
 #include <cmath>
-#include <vector>
+#include <cstring>
 
 namespace slipstream::cpu {
 
@@ -10,8 +10,8 @@ namespace {
 
 int cell_idx(int ny, int i, int j) { return i * ny + j; }
 
-int face_idx_x(int ny, int i, int j) { return i * ny + j; }        // vx: (nx+1)*ny
-int face_idx_y(int ny, int i, int j) { return i * (ny + 1) + j; }  // vy: nx*(ny+1)
+int face_idx_x(int ny, int i, int j) { return i * ny + j; }
+int face_idx_y(int ny, int i, int j) { return i * (ny + 1) + j; }
 
 void flat_to_ij(int ny, int flat, int& i, int& j) {
     j = flat % ny;
@@ -20,19 +20,18 @@ void flat_to_ij(int ny, int flat, int& i, int& j) {
 
 } // anonymous namespace
 
-void red_black_gs(const PersistentState& s, const float* rhs, float* pressure,
+void red_black_gs(int nx, int ny, const float* obstacle,
+                  const float* rhs, float* pressure,
                   int max_iterations, float tolerance)
 {
-    const int Nx    = s.nx;
-    const int Ny    = s.ny;
-    const int total = Nx * Ny;
+    const int total = nx * ny;
 
     for (int iter = 0; iter < max_iterations; ++iter) {
         for (int color = 0; color < 2; ++color) {
             for (int c = 0; c < total; ++c) {
-                if (s.obstacle && s.obstacle[c] != 0.0f) continue;
+                if (obstacle && obstacle[c] != 0.0f) continue;
                 int ci, cj;
-                flat_to_ij(Ny, c, ci, cj);
+                flat_to_ij(ny, c, ci, cj);
                 if ((ci + cj) % 2 != color) continue;
 
                 float sum_nbr = 0.0f;
@@ -43,9 +42,9 @@ void red_black_gs(const PersistentState& s, const float* rhs, float* pressure,
                 for (int k = 0; k < 4; ++k) {
                     int ni = ci + di[k];
                     int nj = cj + dj[k];
-                    if (ni < 0 || ni >= Nx || nj < 0 || nj >= Ny) continue;
-                    int nc = cell_idx(Ny, ni, nj);
-                    if (s.obstacle && s.obstacle[nc] != 0.0f) continue;
+                    if (ni < 0 || ni >= nx || nj < 0 || nj >= ny) continue;
+                    int nc = cell_idx(ny, ni, nj);
+                    if (obstacle && obstacle[nc] != 0.0f) continue;
                     sum_nbr += pressure[nc];
                     ++num_nbr;
                 }
@@ -57,9 +56,9 @@ void red_black_gs(const PersistentState& s, const float* rhs, float* pressure,
         if ((iter + 1) % 10 == 0) {
             float residual = 0.0f;
             for (int c = 0; c < total; ++c) {
-                if (s.obstacle && s.obstacle[c] != 0.0f) continue;
+                if (obstacle && obstacle[c] != 0.0f) continue;
                 int ci, cj;
-                flat_to_ij(Ny, c, ci, cj);
+                flat_to_ij(ny, c, ci, cj);
 
                 float sum_nbr = 0.0f;
                 int   num_nbr = 0;
@@ -68,9 +67,9 @@ void red_black_gs(const PersistentState& s, const float* rhs, float* pressure,
                 for (int k = 0; k < 4; ++k) {
                     int ni = ci + di[k];
                     int nj = cj + dj[k];
-                    if (ni < 0 || ni >= Nx || nj < 0 || nj >= Ny) continue;
-                    int nc = cell_idx(Ny, ni, nj);
-                    if (s.obstacle && s.obstacle[nc] != 0.0f) continue;
+                    if (ni < 0 || ni >= nx || nj < 0 || nj >= ny) continue;
+                    int nc = cell_idx(ny, ni, nj);
+                    if (obstacle && obstacle[nc] != 0.0f) continue;
                     sum_nbr += pressure[nc];
                     ++num_nbr;
                 }
@@ -83,52 +82,50 @@ void red_black_gs(const PersistentState& s, const float* rhs, float* pressure,
     }
 }
 
-void project(const PersistentState& s, float* pressure, int max_iterations, float tolerance)
+void project(int nx, int ny, const float* obstacle,
+             float* vx, float* vy,
+             float* pressure, float* rhs_scratch,
+             int max_iterations, float tolerance)
 {
-    const int Nx    = s.nx;
-    const int Ny    = s.ny;
-    const int total = Nx * Ny;
+    const int total = nx * ny;
 
-    float* vx = s.velocity;
-    float* vy = s.velocity + (Nx + 1) * Ny;
-
-    if (s.obstacle) {
+    if (obstacle) {
         for (int c = 0; c < total; ++c) {
-            if (s.obstacle[c] == 0.0f) continue;
+            if (obstacle[c] == 0.0f) continue;
             int ci, cj;
-            flat_to_ij(Ny, c, ci, cj);
-            vx[face_idx_x(Ny, ci,     cj)] = 0.0f;
-            vx[face_idx_x(Ny, ci + 1, cj)] = 0.0f;
-            vy[face_idx_y(Ny, ci, cj    )] = 0.0f;
-            vy[face_idx_y(Ny, ci, cj + 1)] = 0.0f;
+            flat_to_ij(ny, c, ci, cj);
+            vx[face_idx_x(ny, ci,     cj)] = 0.0f;
+            vx[face_idx_x(ny, ci + 1, cj)] = 0.0f;
+            vy[face_idx_y(ny, ci, cj    )] = 0.0f;
+            vy[face_idx_y(ny, ci, cj + 1)] = 0.0f;
         }
     }
 
-    std::fill(pressure, pressure + total, 0.0f);
-    std::vector<float> rhs(total, 0.0f);
+    std::memset(pressure,    0, static_cast<std::size_t>(total) * sizeof(float));
+    std::memset(rhs_scratch, 0, static_cast<std::size_t>(total) * sizeof(float));
     for (int c = 0; c < total; ++c) {
-        if (s.obstacle && s.obstacle[c] != 0.0f) continue;
+        if (obstacle && obstacle[c] != 0.0f) continue;
         int ci, cj;
-        flat_to_ij(Ny, c, ci, cj);
-        rhs[c] = vx[face_idx_x(Ny, ci + 1, cj    )] - vx[face_idx_x(Ny, ci, cj)]
-               + vy[face_idx_y(Ny, ci,     cj + 1)] - vy[face_idx_y(Ny, ci, cj)];
+        flat_to_ij(ny, c, ci, cj);
+        rhs_scratch[c] = vx[face_idx_x(ny, ci + 1, cj    )] - vx[face_idx_x(ny, ci, cj)]
+                       + vy[face_idx_y(ny, ci,     cj + 1)] - vy[face_idx_y(ny, ci, cj)];
     }
 
-    red_black_gs(s, rhs.data(), pressure, max_iterations, tolerance);
+    red_black_gs(nx, ny, obstacle, rhs_scratch, pressure, max_iterations, tolerance);
 
     for (int c = 0; c < total; ++c) {
-        if (s.obstacle && s.obstacle[c] != 0.0f) continue;
+        if (obstacle && obstacle[c] != 0.0f) continue;
         int ci, cj;
-        flat_to_ij(Ny, c, ci, cj);
+        flat_to_ij(ny, c, ci, cj);
         if (ci > 0) {
-            int lc = cell_idx(Ny, ci - 1, cj);
-            if (!s.obstacle || s.obstacle[lc] == 0.0f)
-                vx[face_idx_x(Ny, ci, cj)] -= pressure[c] - pressure[lc];
+            int lc = cell_idx(ny, ci - 1, cj);
+            if (!obstacle || obstacle[lc] == 0.0f)
+                vx[face_idx_x(ny, ci, cj)] -= pressure[c] - pressure[lc];
         }
         if (cj > 0) {
-            int lc = cell_idx(Ny, ci, cj - 1);
-            if (!s.obstacle || s.obstacle[lc] == 0.0f)
-                vy[face_idx_y(Ny, ci, cj)] -= pressure[c] - pressure[lc];
+            int lc = cell_idx(ny, ci, cj - 1);
+            if (!obstacle || obstacle[lc] == 0.0f)
+                vy[face_idx_y(ny, ci, cj)] -= pressure[c] - pressure[lc];
         }
     }
 }

@@ -5,9 +5,10 @@
 #include "cooling.hpp"
 #include "project.hpp"
 
-#include <algorithm>
+#include <cuda_runtime.h>
+#include <cstddef>
 
-namespace slipstream::cpu {
+namespace slipstream::gpu {
 
 void step(PersistentState& s, const ScratchState& sc, float dt,
           int max_iterations, float tolerance)
@@ -23,10 +24,12 @@ void step(PersistentState& s, const ScratchState& sc, float dt,
                     s.density, s.temperature);
 
     advect_scalar(Nx, Ny, vx, vy, s.density, sc.tmp, dt);
-    std::copy(sc.tmp, sc.tmp + total, s.density);
+    cudaMemcpy(s.density, sc.tmp, (std::size_t)total * sizeof(float),
+               cudaMemcpyDeviceToDevice);
 
     advect_scalar(Nx, Ny, vx, vy, s.temperature, sc.tmp, dt);
-    std::copy(sc.tmp, sc.tmp + total, s.temperature);
+    cudaMemcpy(s.temperature, sc.tmp, (std::size_t)total * sizeof(float),
+               cudaMemcpyDeviceToDevice);
 
     advect_velocity(Nx, Ny, vx, vy, sc.tmp, dt);
 
@@ -38,4 +41,4 @@ void step(PersistentState& s, const ScratchState& sc, float dt,
             sc.pressure, sc.tmp, max_iterations, tolerance);
 }
 
-} // namespace slipstream::cpu
+} // namespace slipstream::gpu
