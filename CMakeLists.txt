@@ -63,18 +63,15 @@ if(SLIPSTREAM_BUILD_PYTHON)
 endif()
 
 add_executable(slipstream_tests
-    tests/cpp/test_conservation.cpp
-    tests/cpp/test_divergence.cpp
-    tests/cpp/test_convergence.cpp
-    tests/cpp/test_advection.cpp
-    tests/cpp/test_ppm.cpp
-    tests/cpp/test_buoyancy.cpp
+    tests/cpp/physics/test_incompressibility.cpp
+    tests/cpp/physics/test_scalar_transport.cpp
+    tests/cpp/physics/test_plume_behavior.cpp
 )
 target_include_directories(slipstream_tests PRIVATE lib/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
 
 if(SLIPSTREAM_BUILD_CUDA)
-    add_executable(slipstream_tests_gpu tests/cpp/test_gpu_parity.cu)
+    add_executable(slipstream_tests_gpu tests/cpp/cuda_parity/test_gpu_parity.cu)
     target_include_directories(slipstream_tests_gpu PRIVATE lib/src)
     target_link_libraries(slipstream_tests_gpu PRIVATE slipstream_core GTest::gtest_main)
     add_test(NAME slipstream_tests_gpu COMMAND slipstream_tests_gpu)
