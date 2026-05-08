@@ -18,6 +18,7 @@ if(SLIPSTREAM_BUILD_CUDA)
 endif()
 
 find_package(GTest CONFIG REQUIRED)
+include(GoogleTest)
 
 add_library(slipstream_core SHARED
     lib/src/arena.cpp
@@ -74,7 +75,6 @@ if(SLIPSTREAM_BUILD_CUDA)
     add_executable(slipstream_tests_gpu tests/cpp/cuda_parity/test_gpu_parity.cu)
     target_include_directories(slipstream_tests_gpu PRIVATE lib/src)
     target_link_libraries(slipstream_tests_gpu PRIVATE slipstream_core GTest::gtest_main)
-    add_test(NAME slipstream_tests_gpu COMMAND slipstream_tests_gpu)
 endif()
 
 add_executable(slipstream tools/cli.cpp)
@@ -82,4 +82,7 @@ target_include_directories(slipstream PRIVATE lib/include lib/src)
 target_link_libraries(slipstream PRIVATE slipstream_core)
 
 enable_testing()
-add_test(NAME slipstream_tests COMMAND slipstream_tests)
+gtest_discover_tests(slipstream_tests)
+if(SLIPSTREAM_BUILD_CUDA)
+    gtest_discover_tests(slipstream_tests_gpu)
+endif()

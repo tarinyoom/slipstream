@@ -27,7 +27,7 @@ float max_diff(const float* a, const float* b, int n) {
 
 } // namespace
 
-TEST(Parity, SmokePlume) {
+TEST(CudaParity, SmokePlume) {
     constexpr int   Nx    = 32;
     constexpr int   Ny    = 32;
     constexpr int   STEPS = 20;
