@@ -33,7 +33,7 @@ jobs:
   build-cuda:
     runs-on: ubuntu-latest
     container:
-      image: nvidia/cuda:12.4.0-devel-ubuntu22.04
+      image: nvidia/cuda:13.2.1-devel-ubuntu24.04
 
     steps:
       - uses: actions/checkout@v4
