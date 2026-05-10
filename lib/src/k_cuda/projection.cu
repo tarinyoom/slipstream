@@ -1,11 +1,11 @@
-#include "compute_projection.hpp"
+#include "projection.hpp"
 
 #include <cuda_runtime.h>
 #include <cuda/functional>
 #include <thrust/execution_policy.h>
 #include <thrust/reduce.h>
 
-namespace slipstream::gpu {
+namespace slipstream::k_cuda {
 
 __global__ static void zero_obstacle_faces_kernel(int nx, int ny, const float* obstacle,
                                                    float* vx, float* vy)
@@ -147,4 +147,4 @@ void compute_projection(int nx, int ny, const float* obstacle,
     cudaDeviceSynchronize();
 }
 
-} // namespace slipstream::gpu
+} // namespace slipstream::k_cuda

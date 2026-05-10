@@ -6,7 +6,7 @@
 
 #include "memory.hpp"
 #include "state.hpp"
-#include "cpu/compute_projection.hpp"
+#include "k_cpu/projection.hpp"
 
 using namespace slipstream;
 
@@ -34,8 +34,8 @@ float max_divergence(int nx, int ny, const float* vx, const float* vy,
 void project(State& s) {
     float* vx = s.velocity;
     float* vy = s.velocity + (s.nx + 1) * s.ny;
-    cpu::compute_projection(s.nx, s.ny, s.obstacle, vx, vy,
-                            s.pressure, s.tmp, MAX_ITER, TOL_SOLVE);
+    k_cpu::compute_projection(s.nx, s.ny, s.obstacle, vx, vy,
+                              s.pressure, s.tmp, MAX_ITER, TOL_SOLVE);
 }
 
 struct OwnedState {

@@ -1,6 +1,6 @@
-#include "compute_cooling.hpp"
+#include "cooling.hpp"
 
-namespace slipstream::cpu {
+namespace slipstream::k_cpu {
 
 void compute_cooling(int total, float cooling, float dt, float* temperature) {
     float factor = 1.0f - cooling * dt;
@@ -8,4 +8,4 @@ void compute_cooling(int total, float cooling, float dt, float* temperature) {
         temperature[c] *= factor;
 }
 
-} // namespace slipstream::cpu
+} // namespace slipstream::k_cpu

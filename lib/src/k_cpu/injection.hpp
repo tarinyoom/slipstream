@@ -1,6 +1,6 @@
 #pragma once
 
-namespace slipstream::cpu {
+namespace slipstream::k_cpu {
 
 void compute_injection(int n_emitters, int total,
                        const float* masks,
@@ -8,4 +8,4 @@ void compute_injection(int n_emitters, int total,
                        const float* emitter_temperatures,
                        float* density, float* temperature);
 
-} // namespace slipstream::cpu
+} // namespace slipstream::k_cpu

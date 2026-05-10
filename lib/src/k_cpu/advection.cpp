@@ -1,9 +1,9 @@
-#include "compute_advection.hpp"
+#include "advection.hpp"
 
 #include <algorithm>
 #include <cmath>
 
-namespace slipstream::cpu {
+namespace slipstream::k_cpu {
 
 namespace {
 
@@ -102,4 +102,4 @@ void compute_scalar_advection(int nx, int ny,
     }
 }
 
-} // namespace slipstream::cpu
+} // namespace slipstream::k_cpu

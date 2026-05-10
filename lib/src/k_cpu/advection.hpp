@@ -1,6 +1,6 @@
 #pragma once
 
-namespace slipstream::cpu {
+namespace slipstream::k_cpu {
 
 void compute_scalar_advection(int nx, int ny,
                               const float* vx, const float* vy,
@@ -10,4 +10,4 @@ void compute_velocity_advection(int nx, int ny,
                                 float* vx, float* vy,
                                 float* scratch, float dt);
 
-} // namespace slipstream::cpu
+} // namespace slipstream::k_cpu

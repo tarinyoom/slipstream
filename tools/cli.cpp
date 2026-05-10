@@ -1,7 +1,7 @@
 #include "memory.hpp"
 #include "ppm.hpp"
 #include "state.hpp"
-#include "cpu/step.hpp"
+#include "step.hpp"
 
 #include <algorithm>
 #include <cstdio>
@@ -87,7 +87,7 @@ static int run_single_emitter(int argc, char** argv) {
     std::filesystem::create_directories(output_dir);
 
     for (int step = 0; step < steps; ++step) {
-        cpu::step(s, dt);
+        step_cpu(s, dt);
 
         float max_d = *std::max_element(s.density, s.density + nx * ny);
 

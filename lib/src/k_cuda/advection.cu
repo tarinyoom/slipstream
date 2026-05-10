@@ -1,9 +1,9 @@
-#include "compute_advection.hpp"
+#include "advection.hpp"
 
 #include <cuda_runtime.h>
 #include <cstddef>
 
-namespace slipstream::gpu {
+namespace slipstream::k_cuda {
 
 __device__ static float bilinear_sample_dev(const float* v, int fs0, int fs1,
                                              float px, float py)
@@ -120,4 +120,4 @@ void compute_velocity_advection(int nx, int ny, float* vx, float* vy, float* scr
                cudaMemcpyDeviceToDevice);
 }
 
-} // namespace slipstream::gpu
+} // namespace slipstream::k_cuda

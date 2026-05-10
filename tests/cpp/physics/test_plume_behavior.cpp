@@ -5,7 +5,7 @@
 
 #include "memory.hpp"
 #include "state.hpp"
-#include "cpu/step.hpp"
+#include "step.hpp"
 
 using namespace slipstream;
 
@@ -65,7 +65,7 @@ void set_emitter_block(State& s, int i_lo, int i_hi, int j_lo, int j_hi) {
 }
 
 void run(State& s, int steps) {
-    for (int k = 0; k < steps; ++k) cpu::step(s, DT);
+    for (int k = 0; k < steps; ++k) step_cpu(s, DT);
 }
 
 struct OwnedState {

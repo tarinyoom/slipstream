@@ -1,7 +1,7 @@
 #pragma once
 
-namespace slipstream::gpu {
+namespace slipstream::k_cpu {
 
 void compute_cooling(int total, float cooling, float dt, float* temperature);
 
-} // namespace slipstream::gpu
+} // namespace slipstream::k_cpu

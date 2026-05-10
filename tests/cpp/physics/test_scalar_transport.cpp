@@ -5,7 +5,7 @@
 
 #include "memory.hpp"
 #include "state.hpp"
-#include "cpu/step.hpp"
+#include "step.hpp"
 
 using namespace slipstream;
 
@@ -37,7 +37,7 @@ void set_uniform_velocity(State& s, float u, float v) {
 }
 
 void run_steps(State& s) {
-    for (int k = 0; k < STEPS; ++k) cpu::step(s, DT);
+    for (int k = 0; k < STEPS; ++k) step_cpu(s, DT);
 }
 
 void check_conserved(double m0, const State& s) {

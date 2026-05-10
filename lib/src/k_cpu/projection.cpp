@@ -1,10 +1,10 @@
-#include "compute_projection.hpp"
+#include "projection.hpp"
 
 #include <algorithm>
 #include <cmath>
 #include <cstring>
 
-namespace slipstream::cpu {
+namespace slipstream::k_cpu {
 
 namespace {
 
@@ -130,4 +130,4 @@ void compute_projection(int nx, int ny, const float* obstacle,
     }
 }
 
-} // namespace slipstream::cpu
+} // namespace slipstream::k_cpu

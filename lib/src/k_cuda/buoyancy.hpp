@@ -1,8 +1,8 @@
 #pragma once
 
-namespace slipstream::gpu {
+namespace slipstream::k_cuda {
 
 void compute_buoyancy(int nx, int ny, float buoyancy, float dt,
                       const float* temperature, float* vx);
 
-} // namespace slipstream::gpu
+} // namespace slipstream::k_cuda

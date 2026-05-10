@@ -1,8 +1,8 @@
-#include "compute_buoyancy.hpp"
+#include "buoyancy.hpp"
 
 #include <cuda_runtime.h>
 
-namespace slipstream::gpu {
+namespace slipstream::k_cuda {
 
 __global__ static void apply_buoyancy_kernel(int nx, int ny, float buoyancy, float dt,
                                               const float* temperature, float* vx)
@@ -25,4 +25,4 @@ void compute_buoyancy(int nx, int ny, float buoyancy, float dt,
     cudaDeviceSynchronize();
 }
 
-} // namespace slipstream::gpu
+} // namespace slipstream::k_cuda

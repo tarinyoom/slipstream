@@ -1,6 +1,6 @@
-#include "compute_injection.hpp"
+#include "injection.hpp"
 
-namespace slipstream::cpu {
+namespace slipstream::k_cpu {
 
 void compute_injection(int n_emitters, int total,
                        const float* masks,
@@ -19,4 +19,4 @@ void compute_injection(int n_emitters, int total,
     }
 }
 
-} // namespace slipstream::cpu
+} // namespace slipstream::k_cpu

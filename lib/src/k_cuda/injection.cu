@@ -1,8 +1,8 @@
-#include "compute_injection.hpp"
+#include "injection.hpp"
 
 #include <cuda_runtime.h>
 
-namespace slipstream::gpu {
+namespace slipstream::k_cuda {
 
 __global__ static void inject_emitters_kernel(int n_emitters, int total,
                                                const float* masks,
@@ -36,4 +36,4 @@ void compute_injection(int n_emitters, int total,
     cudaDeviceSynchronize();
 }
 
-} // namespace slipstream::gpu
+} // namespace slipstream::k_cuda

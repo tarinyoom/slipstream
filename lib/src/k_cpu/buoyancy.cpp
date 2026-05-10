@@ -1,6 +1,6 @@
-#include "compute_buoyancy.hpp"
+#include "buoyancy.hpp"
 
-namespace slipstream::cpu {
+namespace slipstream::k_cpu {
 
 void compute_buoyancy(int nx, int ny, float buoyancy, float dt,
                       const float* temperature, float* vx)
@@ -13,4 +13,4 @@ void compute_buoyancy(int nx, int ny, float buoyancy, float dt,
         }
 }
 
-} // namespace slipstream::cpu
+} // namespace slipstream::k_cpu

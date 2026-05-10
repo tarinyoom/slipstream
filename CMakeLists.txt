@@ -23,12 +23,12 @@ include(GoogleTest)
 add_library(slipstream_core SHARED
     lib/src/state.cpp
     lib/src/memory.cpp
-    lib/src/cpu/compute_advection.cpp
-    lib/src/cpu/compute_projection.cpp
-    lib/src/cpu/compute_injection.cpp
-    lib/src/cpu/compute_buoyancy.cpp
-    lib/src/cpu/compute_cooling.cpp
-    lib/src/cpu/step.cpp
+    lib/src/k_cpu/advection.cpp
+    lib/src/k_cpu/projection.cpp
+    lib/src/k_cpu/injection.cpp
+    lib/src/k_cpu/buoyancy.cpp
+    lib/src/k_cpu/cooling.cpp
+    lib/src/step.cpp
 )
 target_include_directories(slipstream_core PUBLIC lib/include)
 target_include_directories(slipstream_core PRIVATE lib/src)
@@ -36,12 +36,11 @@ target_compile_options(slipstream_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -
 
 if(SLIPSTREAM_BUILD_CUDA)
     target_sources(slipstream_core PRIVATE
-        lib/src/gpu/compute_advection.cu
-        lib/src/gpu/compute_injection.cu
-        lib/src/gpu/compute_buoyancy.cu
-        lib/src/gpu/compute_cooling.cu
-        lib/src/gpu/compute_projection.cu
-        lib/src/gpu/step.cu
+        lib/src/k_cuda/advection.cu
+        lib/src/k_cuda/injection.cu
+        lib/src/k_cuda/buoyancy.cu
+        lib/src/k_cuda/cooling.cu
+        lib/src/k_cuda/projection.cu
     )
     target_compile_definitions(slipstream_core PUBLIC SLIPSTREAM_HAS_CUDA=1)
     target_link_libraries(slipstream_core PRIVATE CUDA::cudart)
@@ -71,9 +70,9 @@ target_include_directories(slipstream_tests PRIVATE lib/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
 
 if(SLIPSTREAM_BUILD_CUDA)
-    add_executable(slipstream_tests_gpu tests/cpp/cuda_parity/test_gpu_parity.cu)
-    target_include_directories(slipstream_tests_gpu PRIVATE lib/src)
-    target_link_libraries(slipstream_tests_gpu PRIVATE slipstream_core GTest::gtest_main)
+    add_executable(slipstream_tests_cuda tests/cpp/cuda_parity/test_cuda_parity.cu)
+    target_include_directories(slipstream_tests_cuda PRIVATE lib/src)
+    target_link_libraries(slipstream_tests_cuda PRIVATE slipstream_core GTest::gtest_main)
 endif()
 
 add_executable(slipstream tools/cli.cpp)
@@ -83,5 +82,5 @@ target_link_libraries(slipstream PRIVATE slipstream_core)
 enable_testing()
 gtest_discover_tests(slipstream_tests)
 if(SLIPSTREAM_BUILD_CUDA)
-    gtest_discover_tests(slipstream_tests_gpu)
+    gtest_discover_tests(slipstream_tests_cuda)
 endif()

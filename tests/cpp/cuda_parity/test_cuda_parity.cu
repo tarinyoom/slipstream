@@ -5,8 +5,7 @@
 
 #include "memory.hpp"
 #include "state.hpp"
-#include "cpu/step.hpp"
-#include "gpu/step.hpp"
+#include "step.hpp"
 
 using namespace slipstream;
 
@@ -72,8 +71,8 @@ TEST(CudaParity, SmokePlume) {
     upload(hs, gs);
 
     for (int k = 0; k < STEPS; ++k) {
-        cpu::step(cs, DT);
-        gpu::step(gs, DT);
+        step_cpu(cs, DT);
+        step_cuda(gs, DT);
     }
 
     download(gs, hs);

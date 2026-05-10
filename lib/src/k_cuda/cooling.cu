@@ -1,8 +1,8 @@
-#include "compute_cooling.hpp"
+#include "cooling.hpp"
 
 #include <cuda_runtime.h>
 
-namespace slipstream::gpu {
+namespace slipstream::k_cuda {
 
 __global__ static void apply_cooling_kernel(int total, float factor, float* temperature) {
     int c = (int)(blockIdx.x * blockDim.x + threadIdx.x);
@@ -17,4 +17,4 @@ void compute_cooling(int total, float cooling, float dt, float* temperature) {
     cudaDeviceSynchronize();
 }
 
-} // namespace slipstream::gpu
+} // namespace slipstream::k_cuda
