@@ -1,4 +1,4 @@
-#include "step.hpp"
+#include "cpu/step.hpp"
 #include "compute_injection.hpp"
 #include "compute_advection.hpp"
 #include "compute_buoyancy.hpp"
@@ -9,8 +9,7 @@
 
 namespace slipstream::cpu {
 
-void step(PersistentState& s, const ScratchState& sc, float dt,
-          int max_iterations, float tolerance)
+void step(State& s, float dt, int max_iterations, float tolerance)
 {
     const int Nx    = s.nx;
     const int Ny    = s.ny;
@@ -22,20 +21,20 @@ void step(PersistentState& s, const ScratchState& sc, float dt,
                       s.emitter_densities, s.emitter_temperatures,
                       s.density, s.temperature);
 
-    compute_scalar_advection(Nx, Ny, vx, vy, s.density, sc.tmp, dt);
-    std::copy(sc.tmp, sc.tmp + total, s.density);
+    compute_scalar_advection(Nx, Ny, vx, vy, s.density, s.tmp, dt);
+    std::copy(s.tmp, s.tmp + total, s.density);
 
-    compute_scalar_advection(Nx, Ny, vx, vy, s.temperature, sc.tmp, dt);
-    std::copy(sc.tmp, sc.tmp + total, s.temperature);
+    compute_scalar_advection(Nx, Ny, vx, vy, s.temperature, s.tmp, dt);
+    std::copy(s.tmp, s.tmp + total, s.temperature);
 
-    compute_velocity_advection(Nx, Ny, vx, vy, sc.tmp, dt);
+    compute_velocity_advection(Nx, Ny, vx, vy, s.tmp, dt);
 
     compute_buoyancy(Nx, Ny, s.buoyancy, dt, s.temperature, vx);
 
     compute_cooling(total, s.cooling, dt, s.temperature);
 
     compute_projection(Nx, Ny, s.obstacle, vx, vy,
-                       sc.pressure, sc.tmp, max_iterations, tolerance);
+                       s.pressure, s.tmp, max_iterations, tolerance);
 }
 
 } // namespace slipstream::cpu

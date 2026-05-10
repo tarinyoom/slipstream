@@ -1,5 +1,6 @@
-#include "arena.hpp"
+#include "memory.hpp"
 #include "ppm.hpp"
+#include "state.hpp"
 #include "cpu/step.hpp"
 
 #include <algorithm>
@@ -66,8 +67,12 @@ static int run_single_emitter(int argc, char** argv) {
         output_dir.pop_back();
 
     int dims[] = {nx, ny};
-    CalculationArena arena(Backend::CPU, 2, dims, 1, true);
-    PersistentState& s = arena.state;
+    std::span<const int> dims_span(dims, 2);
+    const std::size_t sz = required_state_bytes(dims_span, 1, true);
+    void* buf = host_alloc(sz);
+
+    State s{};
+    init_state(s, buf, sz, dims_span, 1, true);
 
     s.buoyancy = buoyancy;
     s.cooling  = cooling;
@@ -82,7 +87,7 @@ static int run_single_emitter(int argc, char** argv) {
     std::filesystem::create_directories(output_dir);
 
     for (int step = 0; step < steps; ++step) {
-        cpu::step(s, *arena.scratch, dt);
+        cpu::step(s, dt);
 
         float max_d = *std::max_element(s.density, s.density + nx * ny);
 
@@ -93,6 +98,7 @@ static int run_single_emitter(int argc, char** argv) {
         std::printf("frame %04d  max=%.4f\n", step, max_d);
     }
 
+    host_free(buf);
     return 0;
 }
 

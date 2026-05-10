@@ -1,23 +1,36 @@
 #pragma once
 
+#include <cstddef>
+#include <span>
+
 namespace slipstream {
 
-struct PersistentState {
+struct State {
     int nx, ny;
+    int n_emitters;
+
     float* density;
-    float* velocity;         // (nx+1)*ny + nx*(ny+1) — staggered
+    float* velocity;
     float* temperature;
     float* obstacle;
-    float* emitter_masks;        // n_emitters * nx * ny
-    float* emitter_densities;    // n_emitters
-    float* emitter_temperatures; // n_emitters
-    int    n_emitters;
+    float* emitter_masks;
+    float* emitter_densities;
+    float* emitter_temperatures;
+
+    float* pressure;
+    float* tmp;
+
     float viscosity, buoyancy, cooling, vorticity;
 };
 
-struct ScratchState {
-    float* pressure;  // nx * ny
-    float* tmp;       // max((nx+1)*ny, nx*(ny+1))
-};
+std::size_t required_state_bytes(std::span<const int> dims,
+                                 int n_emitters,
+                                 bool allocate_scratch);
+
+void init_state(State& state,
+                void* buf, std::size_t len,
+                std::span<const int> dims,
+                int n_emitters,
+                bool allocate_scratch);
 
 } // namespace slipstream

@@ -2,8 +2,10 @@
 #include <algorithm>
 #include <cmath>
 #include <random>
+#include <span>
 
-#include "arena.hpp"
+#include "memory.hpp"
+#include "state.hpp"
 #include "cpu/compute_projection.hpp"
 
 using namespace slipstream;
@@ -29,21 +31,37 @@ float max_divergence(int nx, int ny, const float* vx, const float* vy,
     return max_div;
 }
 
-void project(PersistentState& s, ScratchState& sc) {
+void project(State& s) {
     float* vx = s.velocity;
     float* vy = s.velocity + (s.nx + 1) * s.ny;
     cpu::compute_projection(s.nx, s.ny, s.obstacle, vx, vy,
-                            sc.pressure, sc.tmp, MAX_ITER, TOL_SOLVE);
+                            s.pressure, s.tmp, MAX_ITER, TOL_SOLVE);
 }
+
+struct OwnedState {
+    void* buf;
+    State s;
+
+    OwnedState(int nx, int ny, int n_emitters, bool scratch) {
+        int dims[] = {nx, ny};
+        std::span<const int> dims_span(dims, 2);
+        const std::size_t sz = required_state_bytes(dims_span, n_emitters, scratch);
+        buf = host_alloc(sz);
+        s = {};
+        init_state(s, buf, sz, dims_span, n_emitters, scratch);
+    }
+    ~OwnedState() { host_free(buf); }
+    OwnedState(const OwnedState&) = delete;
+    OwnedState& operator=(const OwnedState&) = delete;
+};
 
 } // namespace
 
 TEST(Incompressible, ZeroField) {
-    int dims[] = {N, N};
-    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
-    PersistentState& s = arena.state;
+    OwnedState st(N, N, 0, true);
+    State& s = st.s;
 
-    project(s, *arena.scratch);
+    project(s);
 
     float* vx = s.velocity;
     float* vy = s.velocity + (N + 1) * N;
@@ -51,24 +69,22 @@ TEST(Incompressible, ZeroField) {
 }
 
 TEST(Incompressible, UniformFlow) {
-    int dims[] = {N, N};
-    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
-    PersistentState& s = arena.state;
+    OwnedState st(N, N, 0, true);
+    State& s = st.s;
 
     float* vx = s.velocity;
     float* vy = s.velocity + (N + 1) * N;
     std::fill(vx, vx + (N + 1) * N, 1.0f);
     std::fill(vy, vy + N * (N + 1), 1.0f);
 
-    project(s, *arena.scratch);
+    project(s);
 
     EXPECT_LT(max_divergence(N, N, vx, vy), TOL_DIV);
 }
 
 TEST(Incompressible, PureRotation) {
-    int dims[] = {N, N};
-    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
-    PersistentState& s = arena.state;
+    OwnedState st(N, N, 0, true);
+    State& s = st.s;
 
     float* vx = s.velocity;
     float* vy = s.velocity + (N + 1) * N;
@@ -83,15 +99,14 @@ TEST(Incompressible, PureRotation) {
         for (int j = 0; j <= N; ++j)
             vy[i * (N + 1) + j] = omega * ((float)i + 0.5f - cx);
 
-    project(s, *arena.scratch);
+    project(s);
 
     EXPECT_LT(max_divergence(N, N, vx, vy), TOL_DIV);
 }
 
 TEST(Incompressible, PointSource) {
-    int dims[] = {N, N};
-    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
-    PersistentState& s = arena.state;
+    OwnedState st(N, N, 0, true);
+    State& s = st.s;
 
     float* vx = s.velocity;
     float* vy = s.velocity + (N + 1) * N;
@@ -104,7 +119,7 @@ TEST(Incompressible, PointSource) {
     vy[ ci * (N + 1) + cj      ] = -V;
     vy[ ci * (N + 1) + cj + 1  ] = +V;
 
-    project(s, *arena.scratch);
+    project(s);
 
     EXPECT_LT(max_divergence(N, N, vx, vy), TOL_DIV);
 }
@@ -125,9 +140,8 @@ void zero_domain_boundary(int n, float* vx, float* vy) {
 } // namespace
 
 TEST(Incompressible, RandomField) {
-    int dims[] = {N, N};
-    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
-    PersistentState& s = arena.state;
+    OwnedState st(N, N, 0, true);
+    State& s = st.s;
 
     float* vx = s.velocity;
     float* vy = s.velocity + (N + 1) * N;
@@ -138,15 +152,14 @@ TEST(Incompressible, RandomField) {
     for (int k = 0; k < N * (N + 1); ++k) vy[k] = dist(rng);
     zero_domain_boundary(N, vx, vy);
 
-    project(s, *arena.scratch);
+    project(s);
 
     EXPECT_LT(max_divergence(N, N, vx, vy), TOL_DIV);
 }
 
 TEST(Incompressible, WithObstacles) {
-    int dims[] = {N, N};
-    CalculationArena arena(Backend::CPU, 2, dims, 0, true);
-    PersistentState& s = arena.state;
+    OwnedState st(N, N, 0, true);
+    State& s = st.s;
 
     float* vx = s.velocity;
     float* vy = s.velocity + (N + 1) * N;
@@ -162,7 +175,7 @@ TEST(Incompressible, WithObstacles) {
         for (int j = oj0; j < oj0 + ow; ++j)
             s.obstacle[i * N + j] = 1.0f;
 
-    project(s, *arena.scratch);
+    project(s);
 
     EXPECT_LT(max_divergence(N, N, vx, vy, s.obstacle), TOL_DIV);
 }

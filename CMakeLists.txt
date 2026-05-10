@@ -21,7 +21,8 @@ find_package(GTest CONFIG REQUIRED)
 include(GoogleTest)
 
 add_library(slipstream_core SHARED
-    lib/src/arena.cpp
+    lib/src/state.cpp
+    lib/src/memory.cpp
     lib/src/cpu/compute_advection.cpp
     lib/src/cpu/compute_projection.cpp
     lib/src/cpu/compute_injection.cpp
@@ -35,8 +36,6 @@ target_compile_options(slipstream_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -
 
 if(SLIPSTREAM_BUILD_CUDA)
     target_sources(slipstream_core PRIVATE
-        lib/src/gpu/memory.cpp
-        lib/src/gpu/transfer.cpp
         lib/src/gpu/compute_advection.cu
         lib/src/gpu/compute_injection.cu
         lib/src/gpu/compute_buoyancy.cu
@@ -78,7 +77,7 @@ if(SLIPSTREAM_BUILD_CUDA)
 endif()
 
 add_executable(slipstream tools/cli.cpp)
-target_include_directories(slipstream PRIVATE lib/include lib/src)
+target_include_directories(slipstream PRIVATE lib/include)
 target_link_libraries(slipstream PRIVATE slipstream_core)
 
 enable_testing()
