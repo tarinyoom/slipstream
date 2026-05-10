@@ -10,7 +10,35 @@
 #include <span>
 #include <string>
 
+#ifdef SLIPSTREAM_HAS_CUDA
+#include <cuda_runtime.h>
+#endif
+
 using namespace slipstream;
+
+enum class Backend { CPU, CUDA };
+
+static Backend select_backend(bool force_cpu) {
+#ifdef SLIPSTREAM_HAS_CUDA
+    if (!force_cpu) {
+        int n = 0;
+        cudaError_t err = cudaGetDeviceCount(&n);
+        if (err == cudaSuccess && n > 0) {
+            cudaDeviceProp prop{};
+            cudaGetDeviceProperties(&prop, 0);
+            std::printf("backend: cuda  (device 0: %s)\n", prop.name);
+            return Backend::CUDA;
+        }
+        std::fprintf(stderr,
+            "warning: SLIPSTREAM_BUILD_CUDA is on but no CUDA device "
+            "is visible; falling back to CPU\n");
+    }
+#else
+    (void)force_cpu;
+#endif
+    std::printf("backend: cpu\n");
+    return Backend::CPU;
+}
 
 static void usage(const char* prog) {
     std::fprintf(stderr,
@@ -20,6 +48,7 @@ static void usage(const char* prog) {
         "  single_emitter    Rising smoke plume from a central bottom emitter\n"
         "\n"
         "Options (all presets):\n"
+        "  --cpu             Force the CPU backend, even on CUDA builds\n"
         "  --output DIR      Output directory for PPM frames  (default: frames/)\n"
         "  --scale N         Pixel scale factor               (default: 4)\n"
         "  --vmax F          Density clamp for colour mapping (default: 1.0)\n"
@@ -36,7 +65,19 @@ static void usage(const char* prog) {
         prog);
 }
 
-static int run_single_emitter(int argc, char** argv) {
+static void write_frame(const std::string& dir, int step,
+                        const State& s, float vmax, int scale) {
+    const int nx = s.nx, ny = s.ny;
+    float max_d = *std::max_element(s.density, s.density + nx * ny);
+
+    char path[512];
+    std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", dir.c_str(), step);
+    write_ppm(path, std::span<const float>(s.density, nx * ny), nx, ny, vmax, scale);
+
+    std::printf("frame %04d  max=%.4f\n", step, max_d);
+}
+
+static int run_single_emitter(int argc, char** argv, Backend backend) {
     int   nx           = 64;
     int   ny           = 64;
     int   steps        = 120;
@@ -69,37 +110,51 @@ static int run_single_emitter(int argc, char** argv) {
     int dims[] = {nx, ny};
     std::span<const int> dims_span(dims, 2);
     const std::size_t sz = required_state_bytes(dims_span, 1, true);
-    void* buf = host_alloc(sz);
 
-    State s{};
-    init_state(s, buf, sz, dims_span, 1, true);
+    void* host_buf = host_alloc(sz);
+    State host{};
+    init_state(host, host_buf, sz, dims_span, 1, true);
 
-    s.buoyancy = buoyancy;
-    s.cooling  = cooling;
+    host.buoyancy = buoyancy;
+    host.cooling  = cooling;
 
     const int cx = nx / 2, cy = ny / 2;
     for (int i = cx - 2; i < cx + 2; ++i)
         for (int j = cy - 2; j < cy + 2; ++j)
-            s.emitter_masks[i * ny + j] = 1.0f;
-    s.emitter_densities[0]    = emitter_dens;
-    s.emitter_temperatures[0] = emitter_temp;
+            host.emitter_masks[i * ny + j] = 1.0f;
+    host.emitter_densities[0]    = emitter_dens;
+    host.emitter_temperatures[0] = emitter_temp;
 
     std::filesystem::create_directories(output_dir);
 
-    for (int step = 0; step < steps; ++step) {
-        step_cpu(s, dt);
-
-        float max_d = *std::max_element(s.density, s.density + nx * ny);
-
-        char path[512];
-        std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", output_dir.c_str(), step);
-        write_ppm(path, std::span<const float>(s.density, nx * ny), nx, ny, vmax, scale);
-
-        std::printf("frame %04d  max=%.4f\n", step, max_d);
+    if (backend == Backend::CPU) {
+        for (int step = 0; step < steps; ++step) {
+            step_cpu(host, dt);
+            write_frame(output_dir, step, host, vmax, scale);
+        }
+        host_free(host_buf);
+        return 0;
     }
 
-    host_free(buf);
+#ifdef SLIPSTREAM_HAS_CUDA
+    void* dev_buf = device_alloc(sz);
+    State dev{};
+    init_state(dev, dev_buf, sz, dims_span, 1, true);
+    upload(host, dev);
+
+    for (int step = 0; step < steps; ++step) {
+        step_cuda(dev, dt);
+        download_field(dev, host, Field::Density);
+        write_frame(output_dir, step, host, vmax, scale);
+    }
+
+    device_free(dev_buf);
+    host_free(host_buf);
     return 0;
+#else
+    host_free(host_buf);
+    return 1;
+#endif
 }
 
 int main(int argc, char** argv) {
@@ -108,10 +163,25 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    bool force_cpu = false;
+    int w = 1;
+    for (int r = 1; r < argc; ++r) {
+        if (std::strcmp(argv[r], "--cpu") == 0) force_cpu = true;
+        else                                    argv[w++] = argv[r];
+    }
+    argc = w;
+
+    if (argc < 2) {
+        usage(argv[0]);
+        return 1;
+    }
+
+    Backend backend = select_backend(force_cpu);
+
     const char* preset = argv[1];
 
     if (std::strcmp(preset, "single_emitter") == 0)
-        return run_single_emitter(argc - 2, argv + 2);
+        return run_single_emitter(argc - 2, argv + 2, backend);
 
     std::fprintf(stderr, "error: unknown preset '%s'\n\n", preset);
     usage(argv[0]);
