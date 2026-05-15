@@ -18,19 +18,19 @@ struct State {
     float* emitter_temperatures;
 
     float* pressure;
-    float* tmp;
+    float* scratch;
 
     float viscosity, buoyancy, cooling, vorticity;
 };
 
 std::size_t required_state_bytes(std::span<const int> dims,
                                  int n_emitters,
-                                 bool allocate_scratch);
+                                 bool allocate_solver_workspace);
 
 void init_state(State& state,
                 void* buf, std::size_t len,
                 std::span<const int> dims,
                 int n_emitters,
-                bool allocate_scratch);
+                bool allocate_solver_workspace);
 
 } // namespace slipstream

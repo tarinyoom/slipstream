@@ -110,7 +110,7 @@ __global__ static void gradient_subtract_kernel(int nx, int ny, const float* obs
 
 void compute_projection(int nx, int ny, const float* obstacle,
                         float* vx, float* vy,
-                        float* pressure, float* rhs_scratch,
+                        float* pressure, float* rhs_scratch, float* residuals,
                         int max_iterations, float tolerance)
 {
     const int total   = nx * ny;
@@ -124,24 +124,20 @@ void compute_projection(int nx, int ny, const float* obstacle,
     compute_divergence_kernel<<<blocks, threads>>>(nx, ny, obstacle, vx, vy, rhs_scratch);
     cudaDeviceSynchronize();
 
-    float* d_residuals;
-    cudaMalloc(&d_residuals, (std::size_t)total * sizeof(float));
-
     for (int iter = 0; iter < max_iterations; ++iter) {
         red_black_gs_kernel<<<blocks, threads>>>(nx, ny, obstacle, rhs_scratch, pressure, 0);
         red_black_gs_kernel<<<blocks, threads>>>(nx, ny, obstacle, rhs_scratch, pressure, 1);
 
         if ((iter + 1) % 10 == 0) {
             compute_residual_kernel<<<blocks, threads>>>(nx, ny, obstacle,
-                                                         rhs_scratch, pressure, d_residuals);
+                                                         rhs_scratch, pressure, residuals);
             float residual = thrust::reduce(thrust::device,
-                                            d_residuals, d_residuals + total,
+                                            residuals, residuals + total,
                                             0.0f, cuda::maximum<float>{});
             if (residual < tolerance) break;
         }
     }
     cudaDeviceSynchronize();
-    cudaFree(d_residuals);
 
     gradient_subtract_kernel<<<blocks, threads>>>(nx, ny, obstacle, pressure, vx, vy);
     cudaDeviceSynchronize();

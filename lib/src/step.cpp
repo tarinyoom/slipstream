@@ -23,20 +23,20 @@ void step_cpu(State& s, float dt, int max_iterations, float tolerance)
                       s.emitter_densities, s.emitter_temperatures,
                       s.density, s.temperature);
 
-    compute_scalar_advection(Nx, Ny, vx, vy, s.density, s.tmp, dt);
-    std::copy(s.tmp, s.tmp + total, s.density);
+    compute_scalar_advection(Nx, Ny, vx, vy, s.density, s.scratch, dt);
+    std::copy(s.scratch, s.scratch + total, s.density);
 
-    compute_scalar_advection(Nx, Ny, vx, vy, s.temperature, s.tmp, dt);
-    std::copy(s.tmp, s.tmp + total, s.temperature);
+    compute_scalar_advection(Nx, Ny, vx, vy, s.temperature, s.scratch, dt);
+    std::copy(s.scratch, s.scratch + total, s.temperature);
 
-    compute_velocity_advection(Nx, Ny, vx, vy, s.tmp, dt);
+    compute_velocity_advection(Nx, Ny, vx, vy, s.scratch, dt);
 
     compute_buoyancy(Nx, Ny, s.buoyancy, dt, s.temperature, vx);
 
     compute_cooling(total, s.cooling, dt, s.temperature);
 
     compute_projection(Nx, Ny, s.obstacle, vx, vy,
-                       s.pressure, s.tmp, max_iterations, tolerance);
+                       s.pressure, s.scratch, max_iterations, tolerance);
 }
 
 #ifdef SLIPSTREAM_HAS_CUDA
@@ -67,22 +67,23 @@ void step_cuda(State& s, float dt, int max_iterations, float tolerance)
                       s.emitter_densities, s.emitter_temperatures,
                       s.density, s.temperature);
 
-    compute_scalar_advection(Nx, Ny, vx, vy, s.density, s.tmp, dt);
-    cudaMemcpy(s.density, s.tmp, (std::size_t)total * sizeof(float),
+    compute_scalar_advection(Nx, Ny, vx, vy, s.density, s.scratch, dt);
+    cudaMemcpy(s.density, s.scratch, (std::size_t)total * sizeof(float),
                cudaMemcpyDeviceToDevice);
 
-    compute_scalar_advection(Nx, Ny, vx, vy, s.temperature, s.tmp, dt);
-    cudaMemcpy(s.temperature, s.tmp, (std::size_t)total * sizeof(float),
+    compute_scalar_advection(Nx, Ny, vx, vy, s.temperature, s.scratch, dt);
+    cudaMemcpy(s.temperature, s.scratch, (std::size_t)total * sizeof(float),
                cudaMemcpyDeviceToDevice);
 
-    compute_velocity_advection(Nx, Ny, vx, vy, s.tmp, dt);
+    compute_velocity_advection(Nx, Ny, vx, vy, s.scratch, dt);
 
     compute_buoyancy(Nx, Ny, s.buoyancy, dt, s.temperature, vx);
 
     compute_cooling(total, s.cooling, dt, s.temperature);
 
     compute_projection(Nx, Ny, s.obstacle, vx, vy,
-                       s.pressure, s.tmp, max_iterations, tolerance);
+                       s.pressure, s.scratch, s.scratch + total,
+                       max_iterations, tolerance);
 }
 
 #endif // SLIPSTREAM_HAS_CUDA

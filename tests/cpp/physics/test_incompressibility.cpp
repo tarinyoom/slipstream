@@ -35,7 +35,7 @@ void project(State& s) {
     float* vx = s.velocity;
     float* vy = s.velocity + (s.nx + 1) * s.ny;
     k_cpu::compute_projection(s.nx, s.ny, s.obstacle, vx, vy,
-                              s.pressure, s.tmp, MAX_ITER, TOL_SOLVE);
+                              s.pressure, s.scratch, MAX_ITER, TOL_SOLVE);
 }
 
 struct OwnedState {
