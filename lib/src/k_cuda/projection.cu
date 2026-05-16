@@ -120,7 +120,6 @@ void compute_projection(int nx, int ny, const float* obstacle,
     if (obstacle)
         zero_obstacle_faces_kernel<<<blocks, threads>>>(nx, ny, obstacle, vx, vy);
 
-    cudaMemset(pressure, 0, (std::size_t)total * sizeof(float));
     compute_divergence_kernel<<<blocks, threads>>>(nx, ny, obstacle, vx, vy, rhs_scratch);
     cudaDeviceSynchronize();
 

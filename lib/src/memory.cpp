@@ -24,6 +24,10 @@ void* device_alloc(std::size_t sz) {
     void* p = nullptr;
     if (cudaMalloc(&p, sz) != cudaSuccess)
         throw std::runtime_error("cudaMalloc failed");
+    if (cudaMemset(p, 0, sz) != cudaSuccess) {
+        cudaFree(p);
+        throw std::runtime_error("cudaMemset (device_alloc) failed");
+    }
     return p;
 }
 

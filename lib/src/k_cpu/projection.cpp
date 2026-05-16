@@ -2,7 +2,6 @@
 
 #include <algorithm>
 #include <cmath>
-#include <cstring>
 
 namespace slipstream::k_cpu {
 
@@ -101,12 +100,13 @@ void compute_projection(int nx, int ny, const float* obstacle,
         }
     }
 
-    std::memset(pressure,    0, static_cast<std::size_t>(total) * sizeof(float));
-    std::memset(rhs_scratch, 0, static_cast<std::size_t>(total) * sizeof(float));
     for (int c = 0; c < total; ++c) {
-        if (obstacle && obstacle[c] != 0.0f) continue;
         int ci, cj;
         flat_to_ij(ny, c, ci, cj);
+        if (obstacle && obstacle[c] != 0.0f) {
+            rhs_scratch[c] = 0.0f;
+            continue;
+        }
         rhs_scratch[c] = vx[face_idx_x(ny, ci + 1, cj    )] - vx[face_idx_x(ny, ci, cj)]
                        + vy[face_idx_y(ny, ci,     cj + 1)] - vy[face_idx_y(ny, ci, cj)];
     }
