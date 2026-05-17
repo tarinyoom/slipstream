@@ -28,37 +28,35 @@ ctest --test-dir build --output-on-failure
 
 ## CLI
 
-`slipstream` runs a named preset and writes a numbered PPM image sequence:
+`slipstream` runs a named preset. Parameters for each preset (grid size,
+step count, emitter geometry, buoyancy, cooling, etc.) are baked into the
+preset; the CLI itself only picks which one to run and which backend to
+use.
 
 ```
-slipstream <preset> [options]
+slipstream <preset> [--cpu]
 
 Presets:
-  single_emitter    Rising smoke plume from a central bottom emitter
+  single_emitter    Rising smoke plume from a bottom emitter
+                    (512x512, 120 steps; writes PPM frames to frames/)
+  perf_snapshot     Fixed 512x512 / 10-step run for profiling
+                    (no frame output)
 
-Options (all presets):
-  --output DIR      Output directory for PPM frames  (default: frames/)
-  --scale N         Pixel scale factor               (default: 4)
-  --vmax F          Density clamp for colour mapping (default: 1.0)
-
-Options (single_emitter):
-  --nx N            Grid width                       (default: 64)
-  --ny N            Grid height                      (default: 64)
-  --steps N         Number of frames to simulate     (default: 120)
-  --dt F            Timestep                         (default: 0.04)
-  --buoyancy F      Buoyancy coefficient             (default: 15.0)
-  --cooling F       Cooling decay rate               (default: 0.5)
-  --emitter-temp F  Temperature injected per step    (default: 200.0)
-  --emitter-dens F  Density injected per step        (default: 1.0)
+Options:
+  --cpu             Force the CPU backend, even on CUDA builds
 ```
+
+On CUDA builds the GPU backend is selected automatically when a device is
+visible; pass `--cpu` to override. On CPU-only builds the flag is a no-op.
 
 Example:
 
 ```bash
-build/slipstream single_emitter --nx 64 --ny 64 --steps 120 --output frames/
+build/slipstream single_emitter
 ```
 
-Assemble the sequence into a video with ffmpeg:
+`single_emitter` writes a numbered PPM sequence to `frames/`. Assemble it
+into a video with ffmpeg:
 
 ```bash
 ffmpeg -framerate 24 -i frames/frame_%04d.ppm -pix_fmt yuv420p out.mp4
