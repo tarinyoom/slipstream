@@ -9,7 +9,6 @@
 #include <cstring>
 #include <filesystem>
 #include <span>
-#include <string>
 
 #ifdef SLIPSTREAM_HAS_CUDA
 #include <cuda_runtime.h>
@@ -43,71 +42,41 @@ static Backend select_backend(bool force_cpu) {
 
 static void usage(const char* prog) {
     std::fprintf(stderr,
-        "Usage: %s <preset> [options]\n"
+        "Usage: %s <preset> [--cpu]\n"
         "\n"
         "Presets:\n"
-        "  single_emitter    Rising smoke plume from a central bottom emitter\n"
-        "  perf_snapshot     Fixed 512x512 / 10-step run for profiling (no options)\n"
+        "  single_emitter    Rising smoke plume from a bottom emitter (512x512, 120 steps)\n"
+        "  perf_snapshot     Fixed 512x512 / 10-step run for profiling\n"
         "\n"
-        "Options (all presets):\n"
-        "  --cpu             Force the CPU backend, even on CUDA builds\n"
-        "  --output DIR      Output directory for PPM frames  (default: frames/)\n"
-        "  --scale N         Pixel scale factor               (default: 4)\n"
-        "  --vmax F          Density clamp for colour mapping (default: 1.0)\n"
-        "\n"
-        "Options (single_emitter):\n"
-        "  --nx N            Grid width                       (default: 64)\n"
-        "  --ny N            Grid height                      (default: 64)\n"
-        "  --steps N         Number of frames to simulate     (default: 120)\n"
-        "  --dt F            Timestep                         (default: 0.04)\n"
-        "  --buoyancy F      Buoyancy coefficient             (default: 15.0)\n"
-        "  --cooling F       Cooling decay rate               (default: 0.5)\n"
-        "  --emitter-temp F  Temperature injected per step    (default: 200.0)\n"
-        "  --emitter-dens F  Density injected per step        (default: 1.0)\n",
+        "Options:\n"
+        "  --cpu             Force the CPU backend, even on CUDA builds\n",
         prog);
 }
 
-static void write_frame(const std::string& dir, int step,
+static void write_frame(const char* dir, int step,
                         const State& s, float vmax, int scale) {
     const int nx = s.nx, ny = s.ny;
     float max_d = *std::max_element(s.density, s.density + nx * ny);
 
     char path[512];
-    std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", dir.c_str(), step);
+    std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", dir, step);
     write_ppm(path, std::span<const float>(s.density, nx * ny), nx, ny, vmax, scale);
 
     std::printf("frame %04d  max=%.4f\n", step, max_d);
 }
 
-static int run_single_emitter(int argc, char** argv, Backend backend) {
-    int   nx           = 64;
-    int   ny           = 64;
-    int   steps        = 120;
-    int   scale        = 4;
-    float dt           = 0.04f;
-    float buoyancy     = 15.0f;
-    float cooling      = 0.5f;
-    float emitter_temp = 200.0f;
-    float emitter_dens = 1.0f;
-    float vmax         = 1.0f;
-    std::string output_dir = "frames";
-
-    for (int i = 0; i < argc; ++i) {
-        if      (std::strcmp(argv[i], "--nx")           == 0) nx           = std::stoi(argv[++i]);
-        else if (std::strcmp(argv[i], "--ny")           == 0) ny           = std::stoi(argv[++i]);
-        else if (std::strcmp(argv[i], "--steps")        == 0) steps        = std::stoi(argv[++i]);
-        else if (std::strcmp(argv[i], "--dt")           == 0) dt           = std::stof(argv[++i]);
-        else if (std::strcmp(argv[i], "--scale")        == 0) scale        = std::stoi(argv[++i]);
-        else if (std::strcmp(argv[i], "--vmax")         == 0) vmax         = std::stof(argv[++i]);
-        else if (std::strcmp(argv[i], "--buoyancy")     == 0) buoyancy     = std::stof(argv[++i]);
-        else if (std::strcmp(argv[i], "--cooling")      == 0) cooling      = std::stof(argv[++i]);
-        else if (std::strcmp(argv[i], "--emitter-temp") == 0) emitter_temp = std::stof(argv[++i]);
-        else if (std::strcmp(argv[i], "--emitter-dens") == 0) emitter_dens = std::stof(argv[++i]);
-        else if (std::strcmp(argv[i], "--output")       == 0) output_dir   = argv[++i];
-    }
-
-    while (output_dir.size() > 1 && output_dir.back() == '/')
-        output_dir.pop_back();
+static int run_single_emitter(Backend backend) {
+    const int   nx           = 512;
+    const int   ny           = 512;
+    const int   steps        = 120;
+    const int   scale        = 4;
+    const float dt           = 0.04f;
+    const float buoyancy     = 10.0f;
+    const float cooling      = 0.5f;
+    const float emitter_temp = 200.0f;
+    const float emitter_dens = 1.0f;
+    const float vmax         = 1.0f;
+    const char* output_dir   = "frames";
 
     int dims[] = {nx, ny};
     std::span<const int> dims_span(dims, 2);
@@ -120,9 +89,10 @@ static int run_single_emitter(int argc, char** argv, Backend backend) {
     host.buoyancy = buoyancy;
     host.cooling  = cooling;
 
-    const int cx = nx / 2, cy = ny / 2;
-    for (int i = cx - 2; i < cx + 2; ++i)
-        for (int j = cy - 2; j < cy + 2; ++j)
+    const int i0 = 32, i1 = 48;
+    const int j0 = ny / 2 - 8, j1 = ny / 2 + 8;
+    for (int i = i0; i < i1; ++i)
+        for (int j = j0; j < j1; ++j)
             host.emitter_masks[i * ny + j] = 1.0f;
     host.emitter_densities[0]    = emitter_dens;
     host.emitter_temperatures[0] = emitter_temp;
@@ -263,7 +233,7 @@ int main(int argc, char** argv) {
     const char* preset = argv[1];
 
     if (std::strcmp(preset, "single_emitter") == 0)
-        return run_single_emitter(argc - 2, argv + 2, backend);
+        return run_single_emitter(backend);
 
     if (std::strcmp(preset, "perf_snapshot") == 0)
         return run_perf_snapshot(backend);
