@@ -4,8 +4,7 @@ project(slipstream LANGUAGES CXX)
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
-option(SLIPSTREAM_BUILD_PYTHON "Build the nanobind Python extension" OFF)
-option(SLIPSTREAM_BUILD_CUDA   "Build the CUDA GPU backend"          OFF)
+option(SLIPSTREAM_BUILD_CUDA "Build the CUDA GPU backend" OFF)
 
 if(SLIPSTREAM_BUILD_CUDA)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
@@ -45,20 +44,6 @@ if(SLIPSTREAM_BUILD_CUDA)
     target_compile_definitions(slipstream_core PUBLIC SLIPSTREAM_HAS_CUDA=1)
     target_link_libraries(slipstream_core PRIVATE CUDA::cudart)
     set_target_properties(slipstream_core PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-endif()
-
-if(SLIPSTREAM_BUILD_PYTHON)
-    find_package(Python 3.11 COMPONENTS Interpreter Development.Module REQUIRED)
-    find_package(nanobind CONFIG REQUIRED)
-
-    nanobind_add_module(_core python/slipstream_py.cpp)
-    target_link_libraries(_core PRIVATE slipstream_core)
-    set_target_properties(_core PROPERTIES
-        BUILD_RPATH  "$<TARGET_FILE_DIR:slipstream_core>"
-        INSTALL_RPATH "$ORIGIN"
-    )
-    install(TARGETS _core           LIBRARY DESTINATION slipstream)
-    install(TARGETS slipstream_core LIBRARY DESTINATION slipstream)
 endif()
 
 add_executable(slipstream_tests
