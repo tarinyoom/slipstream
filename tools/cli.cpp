@@ -40,6 +40,25 @@ static Backend select_backend(bool force_cpu) {
     return Backend::CPU;
 }
 
+struct PerfStats {
+    int    steps;
+    int    nx, ny;
+    double solver_ms;
+    double dtoh_ms;
+    double render_ms;
+};
+
+static void print_perf_stats(const char* preset, const PerfStats& s) {
+    std::printf("%s: %d steps, %dx%d -> solver %.2f ms (%.2f ms/step)",
+                preset, s.steps, s.nx, s.ny,
+                s.solver_ms, s.solver_ms / s.steps);
+
+    double total = s.solver_ms;
+    if (s.dtoh_ms   >= 0.0) { std::printf(", dtoh %.2f ms",   s.dtoh_ms);   total += s.dtoh_ms;   }
+    if (s.render_ms >= 0.0) { std::printf(", render %.2f ms", s.render_ms); total += s.render_ms; }
+    std::printf(", total %.2f ms\n", total);
+}
+
 static void usage(const char* prog) {
     std::fprintf(stderr,
         "Usage: %s <preset> [--cpu]\n"
@@ -99,11 +118,24 @@ static int run_single_emitter(Backend backend) {
 
     std::filesystem::create_directories(output_dir);
 
+    using clock = std::chrono::steady_clock;
+    auto ms = [](clock::duration d) {
+        return std::chrono::duration<double, std::milli>(d).count();
+    };
+
     if (backend == Backend::CPU) {
+        double solver_ms = 0.0, render_ms = 0.0;
         for (int step = 0; step < steps; ++step) {
+            auto t0 = clock::now();
             step_cpu(host, dt);
+            auto t1 = clock::now();
             write_frame(output_dir, step, host, vmax, scale);
+            auto t2 = clock::now();
+            solver_ms += ms(t1 - t0);
+            render_ms += ms(t2 - t1);
         }
+        print_perf_stats("single_emitter",
+            {steps, nx, ny, solver_ms, -1.0, render_ms});
         host_free(host_buf);
         return 0;
     }
@@ -114,11 +146,22 @@ static int run_single_emitter(Backend backend) {
     init_state(dev, dev_buf, sz, dims_span, 1, true);
     upload(host, dev);
 
+    double solver_ms = 0.0, dtoh_ms = 0.0, render_ms = 0.0;
     for (int step = 0; step < steps; ++step) {
+        auto t0 = clock::now();
         step_cuda(dev, dt);
+        cudaDeviceSynchronize();
+        auto t1 = clock::now();
         download_field(dev, host, Field::Density);
+        auto t2 = clock::now();
         write_frame(output_dir, step, host, vmax, scale);
+        auto t3 = clock::now();
+        solver_ms += ms(t1 - t0);
+        dtoh_ms   += ms(t2 - t1);
+        render_ms += ms(t3 - t2);
     }
+    print_perf_stats("single_emitter",
+        {steps, nx, ny, solver_ms, dtoh_ms, render_ms});
 
     device_free(dev_buf);
     host_free(host_buf);
@@ -171,8 +214,8 @@ static int run_perf_snapshot(Backend backend) {
         auto t1 = clock::now();
 
         const double total = ms(t1 - t0);
-        std::printf("perf_snapshot: %d steps, %dx%d -> %.2f ms total (%.2f ms/step)\n",
-                    steps, nx, ny, total, total / steps);
+        print_perf_stats("perf_snapshot",
+            {steps, nx, ny, total, -1.0, -1.0});
         host_free(host_buf);
         return 0;
     }
@@ -197,8 +240,8 @@ static int run_perf_snapshot(Backend backend) {
 
     const double total   = ms(t1 - t0);
     const double dtoh_ms = ms(t2 - t1);
-    std::printf("perf_snapshot: %d steps, %dx%d -> %.2f ms total (%.2f ms/step), DtoH %.2f ms\n",
-                steps, nx, ny, total, total / steps, dtoh_ms);
+    print_perf_stats("perf_snapshot",
+        {steps, nx, ny, total, dtoh_ms, -1.0});
 
     device_free(dev_buf);
     host_free(host_buf);
