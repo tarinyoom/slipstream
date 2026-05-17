@@ -5,6 +5,7 @@ set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
 
 option(SLIPSTREAM_BUILD_CUDA "Build the CUDA GPU backend" OFF)
+option(SLIPSTREAM_BUILD_OPENVDB "Build the CLI with OpenVDB output support" OFF)
 
 if(SLIPSTREAM_BUILD_CUDA)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
@@ -61,10 +62,19 @@ if(SLIPSTREAM_BUILD_CUDA)
 endif()
 
 add_executable(slipstream tools/cli.cpp)
-target_include_directories(slipstream PRIVATE lib/include)
+target_include_directories(slipstream PRIVATE lib/include tools)
 target_link_libraries(slipstream PRIVATE slipstream_core)
 if(SLIPSTREAM_BUILD_CUDA)
     target_link_libraries(slipstream PRIVATE CUDA::cudart)
+endif()
+if(SLIPSTREAM_BUILD_OPENVDB)
+    find_package(OpenVDB CONFIG REQUIRED)
+    find_package(blosc CONFIG REQUIRED)
+    find_package(ZLIB REQUIRED)
+    target_sources(slipstream PRIVATE tools/vdb.cpp)
+    target_link_libraries(slipstream PRIVATE
+        OpenVDB::openvdb blosc_static ZLIB::ZLIB)
+    target_compile_definitions(slipstream PRIVATE SLIPSTREAM_HAS_OPENVDB=1)
 endif()
 
 enable_testing()

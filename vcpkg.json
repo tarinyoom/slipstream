@@ -1,0 +1,13 @@
+{
+  "name": "slipstream",
+  "version-string": "0.1.0",
+  "dependencies": [
+    { "name": "gtest", "default-features": false }
+  ],
+  "features": {
+    "openvdb": {
+      "description": "OpenVDB output for the CLI",
+      "dependencies": ["openvdb"]
+    }
+  }
+}

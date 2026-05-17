@@ -2,6 +2,9 @@
 #include "ppm.hpp"
 #include "state.hpp"
 #include "step.hpp"
+#ifdef SLIPSTREAM_HAS_OPENVDB
+#include "vdb.hpp"
+#endif
 
 #include <algorithm>
 #include <chrono>
@@ -17,6 +20,7 @@
 using namespace slipstream;
 
 enum class Backend { CPU, CUDA };
+enum class OutputFormat { PPM, VDB };
 
 static Backend select_backend(bool force_cpu) {
 #ifdef SLIPSTREAM_HAS_CUDA
@@ -61,30 +65,39 @@ static void print_perf_stats(const char* preset, const PerfStats& s) {
 
 static void usage(const char* prog) {
     std::fprintf(stderr,
-        "Usage: %s <preset> [--cpu]\n"
+        "Usage: %s <preset> [--cpu] [--vdb]\n"
         "\n"
         "Presets:\n"
         "  single_emitter    Rising smoke plume from a bottom emitter (512x512, 120 steps)\n"
         "  perf_snapshot     Fixed 512x512 / 10-step run for profiling\n"
         "\n"
         "Options:\n"
-        "  --cpu             Force the CPU backend, even on CUDA builds\n",
+        "  --cpu             Force the CPU backend, even on CUDA builds\n"
+        "  --vdb             Write OpenVDB volumes instead of PPM (frame_NNNN.vdb)\n",
         prog);
 }
 
 static void write_frame(const char* dir, int step,
-                        const State& s, float vmax, int scale) {
+                        const State& s, float vmax, int scale,
+                        OutputFormat fmt) {
     const int nx = s.nx, ny = s.ny;
     float max_d = *std::max_element(s.density, s.density + nx * ny);
 
     char path[512];
-    std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", dir, step);
-    write_ppm(path, std::span<const float>(s.density, nx * ny), nx, ny, vmax, scale);
+    if (fmt == OutputFormat::PPM) {
+        std::snprintf(path, sizeof(path), "%s/frame_%04d.ppm", dir, step);
+        write_ppm(path, std::span<const float>(s.density, nx * ny), nx, ny, vmax, scale);
+    } else {
+#ifdef SLIPSTREAM_HAS_OPENVDB
+        std::snprintf(path, sizeof(path), "%s/frame_%04d.vdb", dir, step);
+        write_vdb(path, std::span<const float>(s.density, nx * ny), nx, ny);
+#endif
+    }
 
     std::printf("frame %04d  max=%.4f\n", step, max_d);
 }
 
-static int run_single_emitter(Backend backend) {
+static int run_single_emitter(Backend backend, OutputFormat fmt) {
     const int   nx           = 512;
     const int   ny           = 512;
     const int   steps        = 120;
@@ -129,7 +142,7 @@ static int run_single_emitter(Backend backend) {
             auto t0 = clock::now();
             step_cpu(host, dt);
             auto t1 = clock::now();
-            write_frame(output_dir, step, host, vmax, scale);
+            write_frame(output_dir, step, host, vmax, scale, fmt);
             auto t2 = clock::now();
             solver_ms += ms(t1 - t0);
             render_ms += ms(t2 - t1);
@@ -154,7 +167,7 @@ static int run_single_emitter(Backend backend) {
         auto t1 = clock::now();
         download_field(dev, host, Field::Density);
         auto t2 = clock::now();
-        write_frame(output_dir, step, host, vmax, scale);
+        write_frame(output_dir, step, host, vmax, scale, fmt);
         auto t3 = clock::now();
         solver_ms += ms(t1 - t0);
         dtoh_ms   += ms(t2 - t1);
@@ -259,10 +272,12 @@ int main(int argc, char** argv) {
     }
 
     bool force_cpu = false;
+    bool want_vdb  = false;
     int w = 1;
     for (int r = 1; r < argc; ++r) {
-        if (std::strcmp(argv[r], "--cpu") == 0) force_cpu = true;
-        else                                    argv[w++] = argv[r];
+        if      (std::strcmp(argv[r], "--cpu") == 0) force_cpu = true;
+        else if (std::strcmp(argv[r], "--vdb") == 0) want_vdb  = true;
+        else                                         argv[w++] = argv[r];
     }
     argc = w;
 
@@ -271,12 +286,23 @@ int main(int argc, char** argv) {
         return 1;
     }
 
+    OutputFormat fmt = OutputFormat::PPM;
+    if (want_vdb) {
+#ifdef SLIPSTREAM_HAS_OPENVDB
+        fmt = OutputFormat::VDB;
+#else
+        std::fprintf(stderr,
+            "error: --vdb requires building with -DSLIPSTREAM_BUILD_OPENVDB=ON\n");
+        return 1;
+#endif
+    }
+
     Backend backend = select_backend(force_cpu);
 
     const char* preset = argv[1];
 
     if (std::strcmp(preset, "single_emitter") == 0)
-        return run_single_emitter(backend);
+        return run_single_emitter(backend, fmt);
 
     if (std::strcmp(preset, "perf_snapshot") == 0)
         return run_perf_snapshot(backend);
