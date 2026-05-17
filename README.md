@@ -1,10 +1,12 @@
 # Slipstream
 
-A C++ Stam-lineage smoke solver.
+A CUDA Stam-lineage fluid solver.
 
-Latest rendering:
+Latest rendering is below:
 
-https://github.com/user-attachments/assets/bcf0c8de-0a42-47ce-ad22-ca69f2db5ba6
+https://github.com/user-attachments/assets/c8497323-972c-4601-b38b-0ac909fbecc9
+
+This was rendered on my NVIDIA GeForce RTX 3050 6GB Laptop GPU, solving over a 512x512 2D domain with 120 steps at an average of 89.11 ms/step for GPU compute time.
 
 ---
 
