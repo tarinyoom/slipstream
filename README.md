@@ -10,54 +10,46 @@ This was rendered on my NVIDIA GeForce RTX 3050 6GB Laptop GPU, solving over a 5
 
 ---
 
-## Dependencies
+## Prerequisites
 
 - CMake ≥ 3.24
 - C++20-compatible compiler (GCC or Clang)
-- GoogleTest (e.g. `sudo apt install libgtest-dev`)
-
-Optional, for `--vdb` output:
-
-- [vcpkg](https://github.com/microsoft/vcpkg) — cloned and bootstrapped
-  once, then exposed via `VCPKG_ROOT`
 - `ninja-build` (vcpkg's default generator for its ports)
+- [vcpkg](https://github.com/microsoft/vcpkg), bootstrapped once and
+  exposed via `VCPKG_ROOT`:
+
+  ```bash
+  git clone https://github.com/microsoft/vcpkg ~/vcpkg
+  ~/vcpkg/bootstrap-vcpkg.sh
+  export VCPKG_ROOT=$HOME/vcpkg      # add to ~/.bashrc to persist
+  ```
+
+  vcpkg is mandatory — `gtest` and (when built) `OpenVDB` both come
+  from it.
 
 ## Build and test
 
 ```bash
-cmake -B build -DCMAKE_BUILD_TYPE=Release
+cmake -B build
 cmake --build build
 ctest --test-dir build --output-on-failure
 ```
 
-### Build with OpenVDB output
+Defaults: `CMAKE_BUILD_TYPE=Release`, `SLIPSTREAM_BUILD_CUDA=ON`,
+`SLIPSTREAM_BUILD_OPENVDB=ON`. The first configure on a fresh checkout
+compiles OpenVDB and its transitive dependencies (TBB, blosc,
+boost-iostreams, openexr, …) into `build/vcpkg_installed/`. Budget
+**15–30 min** and **5–10 GB** of disk for that one run; subsequent
+configures reuse the vcpkg binary cache and complete in seconds.
 
-Set up vcpkg once:
-
-```bash
-git clone https://github.com/microsoft/vcpkg ~/vcpkg
-~/vcpkg/bootstrap-vcpkg.sh
-export VCPKG_ROOT=$HOME/vcpkg            # add to ~/.bashrc to persist
-sudo apt install ninja-build
-```
-
-Then configure a separate build directory with the vcpkg toolchain and
-the `openvdb` manifest feature enabled:
+To opt out of either backend, pass an explicit OFF on the configure
+line:
 
 ```bash
-cmake -B build-vdb \
-  -DCMAKE_TOOLCHAIN_FILE=$VCPKG_ROOT/scripts/buildsystems/vcpkg.cmake \
-  -DVCPKG_MANIFEST_FEATURES=openvdb \
-  -DSLIPSTREAM_BUILD_OPENVDB=ON \
-  -DCMAKE_BUILD_TYPE=Release
-cmake --build build-vdb
+cmake -B build -DSLIPSTREAM_BUILD_CUDA=OFF        # no nvcc on this box
+cmake -B build -DSLIPSTREAM_BUILD_OPENVDB=OFF     # PPM only, no vcpkg openvdb install
+cmake -B build -DSLIPSTREAM_BUILD_CUDA=OFF -DSLIPSTREAM_BUILD_OPENVDB=OFF
 ```
-
-The first configure compiles OpenVDB and its transitive dependencies
-(TBB, blosc, boost-iostreams, openexr, …) from source into
-`build-vdb/vcpkg_installed/`. Budget **15–30 min** and **5–10 GB** of
-disk for that first run; subsequent configures reuse the vcpkg binary
-cache and complete in seconds.
 
 ---
 
@@ -80,7 +72,7 @@ Presets:
 Options:
   --cpu             Force the CPU backend, even on CUDA builds
   --vdb             Write OpenVDB volumes instead of PPM
-                    (requires -DSLIPSTREAM_BUILD_OPENVDB=ON)
+                    (requires an OpenVDB-enabled build)
 ```
 
 On CUDA builds the GPU backend is selected automatically when a device is
@@ -103,11 +95,10 @@ The `-pix_fmt yuv420p` flag is required for playback on Windows.
 
 ### OpenVDB output
 
-With an OpenVDB-enabled build, `--vdb` switches the writer from PPM to
-sparse `.vdb` volumes:
+`--vdb` switches the writer from PPM to sparse `.vdb` volumes:
 
 ```bash
-build-vdb/slipstream single_emitter --vdb
+build/slipstream single_emitter --vdb
 ```
 
 This writes `frames/frame_NNNN.vdb` — one OpenVDB FOG volume per step,

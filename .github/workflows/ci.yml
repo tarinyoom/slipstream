@@ -15,11 +15,19 @@ jobs:
       - name: Install system dependencies
         run: |
           sudo apt-get update
-          sudo apt-get install -y cmake build-essential libgtest-dev
+          sudo apt-get install -y cmake build-essential ninja-build curl zip unzip tar pkg-config
+
+      - name: Install vcpkg
+        run: |
+          git clone --depth 1 --branch 2025.04.09 https://github.com/microsoft/vcpkg "$HOME/vcpkg"
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Build C++
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release
+          cmake -B build \
+            -DSLIPSTREAM_BUILD_OPENVDB=OFF \
+            -DSLIPSTREAM_BUILD_CUDA=OFF
           cmake --build build
 
       - name: Run C++ tests
@@ -27,8 +35,8 @@ jobs:
 
       - name: Smoke test CLI
         run: |
-          build/slipstream single_emitter --nx 16 --ny 16 --steps 5 --output /tmp/cli_smoke
-          test $(ls /tmp/cli_smoke/*.ppm | wc -l) -eq 5
+          build/slipstream single_emitter --cpu
+          test "$(ls frames/*.ppm | wc -l)" -eq 120
 
   build-cuda:
     runs-on: ubuntu-latest
@@ -41,11 +49,17 @@ jobs:
       - name: Install system dependencies
         run: |
           apt-get update
-          apt-get install -y cmake build-essential libgtest-dev
+          apt-get install -y cmake build-essential ninja-build git curl zip unzip tar pkg-config
+
+      - name: Install vcpkg
+        run: |
+          git clone --depth 1 --branch 2025.04.09 https://github.com/microsoft/vcpkg "$HOME/vcpkg"
+          "$HOME/vcpkg/bootstrap-vcpkg.sh" -disableMetrics
+          echo "VCPKG_ROOT=$HOME/vcpkg" >> "$GITHUB_ENV"
 
       - name: Build C++ with CUDA
         run: |
-          cmake -B build -DCMAKE_BUILD_TYPE=Release \
-            -DSLIPSTREAM_BUILD_CUDA=ON \
+          cmake -B build \
+            -DSLIPSTREAM_BUILD_OPENVDB=OFF \
             -DCMAKE_CUDA_ARCHITECTURES=all-major
           cmake --build build

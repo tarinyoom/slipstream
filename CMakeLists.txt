@@ -1,11 +1,36 @@
 cmake_minimum_required(VERSION 3.24)
+
+if(NOT DEFINED ENV{VCPKG_ROOT})
+    message(FATAL_ERROR "VCPKG_ROOT is not set. This project requires vcpkg.")
+endif()
+
+if(NOT DEFINED CMAKE_TOOLCHAIN_FILE)
+    set(CMAKE_TOOLCHAIN_FILE
+        "$ENV{VCPKG_ROOT}/scripts/buildsystems/vcpkg.cmake"
+        CACHE FILEPATH "vcpkg toolchain (auto-set from VCPKG_ROOT)")
+endif()
+
+if(NOT DEFINED SLIPSTREAM_BUILD_OPENVDB)
+    set(SLIPSTREAM_BUILD_OPENVDB ON CACHE BOOL "Build CLI with OpenVDB output")
+endif()
+
+if(NOT DEFINED SLIPSTREAM_BUILD_CUDA)
+    set(SLIPSTREAM_BUILD_CUDA ON CACHE BOOL "Build the CUDA GPU backend")
+endif()
+
+if(SLIPSTREAM_BUILD_OPENVDB AND NOT DEFINED VCPKG_MANIFEST_FEATURES)
+    set(VCPKG_MANIFEST_FEATURES "openvdb"
+        CACHE STRING "vcpkg manifest features (auto-set by SLIPSTREAM_BUILD_OPENVDB)")
+endif()
+
+if(NOT CMAKE_BUILD_TYPE AND NOT CMAKE_CONFIGURATION_TYPES)
+    set(CMAKE_BUILD_TYPE Release CACHE STRING "Build type" FORCE)
+endif()
+
 project(slipstream LANGUAGES CXX)
 
 set(CMAKE_CXX_STANDARD 20)
 set(CMAKE_CXX_STANDARD_REQUIRED ON)
-
-option(SLIPSTREAM_BUILD_CUDA "Build the CUDA GPU backend" OFF)
-option(SLIPSTREAM_BUILD_OPENVDB "Build the CLI with OpenVDB output support" OFF)
 
 if(SLIPSTREAM_BUILD_CUDA)
     if(NOT DEFINED CMAKE_CUDA_ARCHITECTURES)
