@@ -45,7 +45,7 @@ endif()
 find_package(GTest CONFIG REQUIRED)
 include(GoogleTest)
 
-add_library(slipstream_core SHARED
+add_library(slipstream_core STATIC
     lib/src/state.cpp
     lib/src/memory.cpp
     lib/src/k_cpu/advection.cpp
@@ -57,7 +57,11 @@ add_library(slipstream_core SHARED
 )
 target_include_directories(slipstream_core PUBLIC lib/include)
 target_include_directories(slipstream_core PRIVATE lib/src)
-target_compile_options(slipstream_core PRIVATE $<$<COMPILE_LANGUAGE:CXX>:-Wall -Wextra>)
+target_compile_options(slipstream_core PRIVATE
+    $<$<COMPILE_LANGUAGE:CXX>:
+        $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
+        $<$<CXX_COMPILER_ID:MSVC>:/W4>
+    >)
 
 if(SLIPSTREAM_BUILD_CUDA)
     target_sources(slipstream_core PRIVATE
