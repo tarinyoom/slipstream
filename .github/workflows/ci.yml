@@ -6,7 +6,7 @@ on:
   pull_request:
 
 jobs:
-  openvdb:
+  cpu-build-and-test:
     strategy:
       fail-fast: false
       matrix:
