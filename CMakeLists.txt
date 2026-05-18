@@ -46,17 +46,17 @@ find_package(GTest CONFIG REQUIRED)
 include(GoogleTest)
 
 add_library(slipstream_core STATIC
-    lib/src/state.cpp
-    lib/src/memory.cpp
-    lib/src/k_cpu/advection.cpp
-    lib/src/k_cpu/projection.cpp
-    lib/src/k_cpu/injection.cpp
-    lib/src/k_cpu/buoyancy.cpp
-    lib/src/k_cpu/cooling.cpp
-    lib/src/step.cpp
+    core/src/state.cpp
+    core/src/memory.cpp
+    core/src/k_cpu/advection.cpp
+    core/src/k_cpu/projection.cpp
+    core/src/k_cpu/injection.cpp
+    core/src/k_cpu/buoyancy.cpp
+    core/src/k_cpu/cooling.cpp
+    core/src/step.cpp
 )
-target_include_directories(slipstream_core PUBLIC lib/include)
-target_include_directories(slipstream_core PRIVATE lib/src)
+target_include_directories(slipstream_core PUBLIC core/include)
+target_include_directories(slipstream_core PRIVATE core/src)
 target_compile_options(slipstream_core PRIVATE
     $<$<COMPILE_LANGUAGE:CXX>:
         $<$<CXX_COMPILER_ID:GNU,Clang,AppleClang>:-Wall;-Wextra>
@@ -65,11 +65,11 @@ target_compile_options(slipstream_core PRIVATE
 
 if(SLIPSTREAM_BUILD_CUDA)
     target_sources(slipstream_core PRIVATE
-        lib/src/k_cuda/advection.cu
-        lib/src/k_cuda/injection.cu
-        lib/src/k_cuda/buoyancy.cu
-        lib/src/k_cuda/cooling.cu
-        lib/src/k_cuda/projection.cu
+        core/src/k_cuda/advection.cu
+        core/src/k_cuda/injection.cu
+        core/src/k_cuda/buoyancy.cu
+        core/src/k_cuda/cooling.cu
+        core/src/k_cuda/projection.cu
     )
     target_compile_definitions(slipstream_core PUBLIC SLIPSTREAM_HAS_CUDA=1)
     target_link_libraries(slipstream_core PRIVATE CUDA::cudart)
@@ -81,17 +81,17 @@ add_executable(slipstream_tests
     tests/cpp/physics/test_scalar_transport.cpp
     tests/cpp/physics/test_plume_behavior.cpp
 )
-target_include_directories(slipstream_tests PRIVATE lib/src)
+target_include_directories(slipstream_tests PRIVATE core/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
 
 if(SLIPSTREAM_BUILD_CUDA)
     add_executable(slipstream_tests_cuda tests/cpp/cuda_parity/test_cuda_parity.cu)
-    target_include_directories(slipstream_tests_cuda PRIVATE lib/src)
+    target_include_directories(slipstream_tests_cuda PRIVATE core/src)
     target_link_libraries(slipstream_tests_cuda PRIVATE slipstream_core GTest::gtest_main)
 endif()
 
 add_executable(slipstream tools/cli.cpp)
-target_include_directories(slipstream PRIVATE lib/include tools)
+target_include_directories(slipstream PRIVATE core/include tools)
 target_link_libraries(slipstream PRIVATE slipstream_core)
 if(SLIPSTREAM_BUILD_CUDA)
     target_link_libraries(slipstream PRIVATE CUDA::cudart)
