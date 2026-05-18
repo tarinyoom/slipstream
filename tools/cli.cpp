@@ -70,6 +70,7 @@ static void usage(const char* prog) {
         "Presets:\n"
         "  single_emitter    Rising smoke plume from a bottom emitter (512x512, 120 steps)\n"
         "  perf_snapshot     Fixed 512x512 / 10-step run for profiling\n"
+        "  rising_plume_3d   Rising 3D smoke plume (128x128x128, 60 steps; .vdb output only)\n"
         "\n"
         "Options:\n"
         "  --cpu             Force the CPU backend, even on CUDA builds\n"
@@ -265,6 +266,116 @@ static int run_perf_snapshot(Backend backend) {
 #endif
 }
 
+#ifdef SLIPSTREAM_HAS_OPENVDB
+static void write_frame_3d(const char* dir, int step, const State& s) {
+    const int nx = s.nx, ny = s.ny, nz = s.nz;
+    const int total = nx * ny * nz;
+    float max_d = *std::max_element(s.density, s.density + total);
+
+    char path[512];
+    std::snprintf(path, sizeof(path), "%s/frame_%04d.vdb", dir, step);
+    write_vdb(path, std::span<const float>(s.density, total), nx, ny, nz);
+
+    std::printf("frame %04d  max=%.4f\n", step, max_d);
+}
+#endif
+
+static int run_rising_plume_3d(Backend backend) {
+#ifndef SLIPSTREAM_HAS_OPENVDB
+    (void)backend;
+    std::fprintf(stderr,
+        "error: rising_plume_3d requires building with -DSLIPSTREAM_BUILD_OPENVDB=ON\n");
+    return 1;
+#else
+    const int   nx           = 128;
+    const int   ny           = 128;
+    const int   nz           = 128;
+    const int   steps        = 60;
+    const float dt           = 0.04f;
+    const float buoyancy     = 10.0f;
+    const float cooling      = 0.5f;
+    const float emitter_temp = 200.0f;
+    const float emitter_dens = 1.0f;
+    const char* output_dir   = "frames";
+
+    int dims[] = {nx, ny, nz};
+    std::span<const int> dims_span(dims, 3);
+    const std::size_t sz = required_state_bytes(dims_span, 1, true);
+
+    void* host_buf = host_alloc(sz);
+    State host{};
+    init_state(host, host_buf, sz, dims_span, 1, true);
+
+    host.buoyancy = buoyancy;
+    host.cooling  = cooling;
+
+    const int i0 = 8,         i1 = 24;
+    const int j0 = ny / 2 - 8, j1 = ny / 2 + 8;
+    const int k0 = nz / 2 - 8, k1 = nz / 2 + 8;
+    for (int i = i0; i < i1; ++i)
+        for (int j = j0; j < j1; ++j)
+            for (int k = k0; k < k1; ++k)
+                host.emitter_masks[(i * ny + j) * nz + k] = 1.0f;
+    host.emitter_densities[0]    = emitter_dens;
+    host.emitter_temperatures[0] = emitter_temp;
+
+    std::filesystem::create_directories(output_dir);
+
+    using clock = std::chrono::steady_clock;
+    auto ms = [](clock::duration d) {
+        return std::chrono::duration<double, std::milli>(d).count();
+    };
+
+    if (backend == Backend::CPU) {
+        double solver_ms = 0.0, render_ms = 0.0;
+        for (int step = 0; step < steps; ++step) {
+            auto t0 = clock::now();
+            step_3d_cpu(host, dt);
+            auto t1 = clock::now();
+            write_frame_3d(output_dir, step, host);
+            auto t2 = clock::now();
+            solver_ms += ms(t1 - t0);
+            render_ms += ms(t2 - t1);
+        }
+        print_perf_stats("rising_plume_3d",
+            {steps, nx, ny, solver_ms, -1.0, render_ms});
+        host_free(host_buf);
+        return 0;
+    }
+
+#ifdef SLIPSTREAM_HAS_CUDA
+    void* dev_buf = device_alloc(sz);
+    State dev{};
+    init_state(dev, dev_buf, sz, dims_span, 1, true);
+    upload(host, dev);
+
+    double solver_ms = 0.0, dtoh_ms = 0.0, render_ms = 0.0;
+    for (int step = 0; step < steps; ++step) {
+        auto t0 = clock::now();
+        step_3d_cuda(dev, dt);
+        cudaDeviceSynchronize();
+        auto t1 = clock::now();
+        download_field(dev, host, Field::Density);
+        auto t2 = clock::now();
+        write_frame_3d(output_dir, step, host);
+        auto t3 = clock::now();
+        solver_ms += ms(t1 - t0);
+        dtoh_ms   += ms(t2 - t1);
+        render_ms += ms(t3 - t2);
+    }
+    print_perf_stats("rising_plume_3d",
+        {steps, nx, ny, solver_ms, dtoh_ms, render_ms});
+
+    device_free(dev_buf);
+    host_free(host_buf);
+    return 0;
+#else
+    host_free(host_buf);
+    return 1;
+#endif
+#endif // SLIPSTREAM_HAS_OPENVDB
+}
+
 int main(int argc, char** argv) {
     if (argc < 2) {
         usage(argv[0]);
@@ -306,6 +417,9 @@ int main(int argc, char** argv) {
 
     if (std::strcmp(preset, "perf_snapshot") == 0)
         return run_perf_snapshot(backend);
+
+    if (std::strcmp(preset, "rising_plume_3d") == 0)
+        return run_rising_plume_3d(backend);
 
     std::fprintf(stderr, "error: unknown preset '%s'\n\n", preset);
     usage(argv[0]);

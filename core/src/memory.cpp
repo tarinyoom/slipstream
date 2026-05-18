@@ -49,16 +49,34 @@ void memcpy_d2h(void* dst, const void* src, std::size_t sz) {
 
 } // anonymous namespace
 
+namespace {
+
+std::size_t total_cells(const State& s) {
+    return s.nz == 0
+        ? (std::size_t)s.nx * s.ny
+        : (std::size_t)s.nx * s.ny * s.nz;
+}
+
+std::size_t velocity_floats(const State& s) {
+    return s.nz == 0
+        ? (std::size_t)(s.nx + 1) * s.ny + (std::size_t)s.nx * (s.ny + 1)
+        : (std::size_t)(s.nx + 1) * s.ny * s.nz
+          + (std::size_t)s.nx * (s.ny + 1) * s.nz
+          + (std::size_t)s.nx * s.ny * (s.nz + 1);
+}
+
+} // anonymous namespace
+
 void upload(const State& s, State& d) {
-    assert(s.nx == d.nx && s.ny == d.ny && s.n_emitters == d.n_emitters);
+    assert(s.nx == d.nx && s.ny == d.ny && s.nz == d.nz && s.n_emitters == d.n_emitters);
 
-    const int total  = s.nx * s.ny;
-    const int v_size = (s.nx + 1) * s.ny + s.nx * (s.ny + 1);
+    const std::size_t total  = total_cells(s);
+    const std::size_t v_size = velocity_floats(s);
 
-    memcpy_h2d(d.density,     s.density,     (std::size_t)total  * sizeof(float));
-    memcpy_h2d(d.velocity,    s.velocity,    (std::size_t)v_size * sizeof(float));
-    memcpy_h2d(d.temperature, s.temperature, (std::size_t)total  * sizeof(float));
-    memcpy_h2d(d.obstacle,    s.obstacle,    (std::size_t)total  * sizeof(float));
+    memcpy_h2d(d.density,     s.density,     total  * sizeof(float));
+    memcpy_h2d(d.velocity,    s.velocity,    v_size * sizeof(float));
+    memcpy_h2d(d.temperature, s.temperature, total  * sizeof(float));
+    memcpy_h2d(d.obstacle,    s.obstacle,    total  * sizeof(float));
 
     if (s.n_emitters > 0) {
         memcpy_h2d(d.emitter_masks,        s.emitter_masks,
@@ -76,15 +94,15 @@ void upload(const State& s, State& d) {
 }
 
 void download(const State& s, State& d) {
-    assert(s.nx == d.nx && s.ny == d.ny && s.n_emitters == d.n_emitters);
+    assert(s.nx == d.nx && s.ny == d.ny && s.nz == d.nz && s.n_emitters == d.n_emitters);
 
-    const int total  = s.nx * s.ny;
-    const int v_size = (s.nx + 1) * s.ny + s.nx * (s.ny + 1);
+    const std::size_t total  = total_cells(s);
+    const std::size_t v_size = velocity_floats(s);
 
-    memcpy_d2h(d.density,     s.density,     (std::size_t)total  * sizeof(float));
-    memcpy_d2h(d.velocity,    s.velocity,    (std::size_t)v_size * sizeof(float));
-    memcpy_d2h(d.temperature, s.temperature, (std::size_t)total  * sizeof(float));
-    memcpy_d2h(d.obstacle,    s.obstacle,    (std::size_t)total  * sizeof(float));
+    memcpy_d2h(d.density,     s.density,     total  * sizeof(float));
+    memcpy_d2h(d.velocity,    s.velocity,    v_size * sizeof(float));
+    memcpy_d2h(d.temperature, s.temperature, total  * sizeof(float));
+    memcpy_d2h(d.obstacle,    s.obstacle,    total  * sizeof(float));
 
     if (s.n_emitters > 0) {
         memcpy_d2h(d.emitter_masks,        s.emitter_masks,
@@ -102,17 +120,17 @@ void download(const State& s, State& d) {
 }
 
 void download_field(const State& s, State& d, Field field) {
-    assert(s.nx == d.nx && s.ny == d.ny);
+    assert(s.nx == d.nx && s.ny == d.ny && s.nz == d.nz);
 
-    const int total  = s.nx * s.ny;
-    const int v_size = (s.nx + 1) * s.ny + s.nx * (s.ny + 1);
+    const std::size_t total  = total_cells(s);
+    const std::size_t v_size = velocity_floats(s);
 
     switch (field) {
     case Field::Density:
-        memcpy_d2h(d.density,  s.density,  (std::size_t)total  * sizeof(float));
+        memcpy_d2h(d.density,  s.density,  total  * sizeof(float));
         break;
     case Field::Velocity:
-        memcpy_d2h(d.velocity, s.velocity, (std::size_t)v_size * sizeof(float));
+        memcpy_d2h(d.velocity, s.velocity, v_size * sizeof(float));
         break;
     }
 }

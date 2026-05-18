@@ -53,6 +53,11 @@ add_library(slipstream_core STATIC
     core/src/k_cpu/injection.cpp
     core/src/k_cpu/buoyancy.cpp
     core/src/k_cpu/cooling.cpp
+    core/src/k_cpu/injection_3d.cpp
+    core/src/k_cpu/cooling_3d.cpp
+    core/src/k_cpu/advection_3d.cpp
+    core/src/k_cpu/projection_3d.cpp
+    core/src/k_cpu/buoyancy_3d.cpp
     core/src/step.cpp
 )
 target_include_directories(slipstream_core PUBLIC core/include)
@@ -70,6 +75,11 @@ if(SLIPSTREAM_BUILD_CUDA)
         core/src/k_cuda/buoyancy.cu
         core/src/k_cuda/cooling.cu
         core/src/k_cuda/projection.cu
+        core/src/k_cuda/advection_3d.cu
+        core/src/k_cuda/injection_3d.cu
+        core/src/k_cuda/buoyancy_3d.cu
+        core/src/k_cuda/cooling_3d.cu
+        core/src/k_cuda/projection_3d.cu
     )
     target_compile_definitions(slipstream_core PUBLIC SLIPSTREAM_HAS_CUDA=1)
     target_link_libraries(slipstream_core PRIVATE CUDA::cudart)
@@ -78,6 +88,7 @@ endif()
 
 add_executable(slipstream_tests
     tests/cpp/physics/test_incompressibility.cpp
+    tests/cpp/physics/test_incompressibility_3d.cpp
     tests/cpp/physics/test_scalar_transport.cpp
     tests/cpp/physics/test_plume_behavior.cpp
 )
@@ -85,10 +96,24 @@ target_include_directories(slipstream_tests PRIVATE core/src)
 target_link_libraries(slipstream_tests PRIVATE slipstream_core GTest::gtest_main)
 
 if(SLIPSTREAM_BUILD_CUDA)
-    add_executable(slipstream_tests_cuda tests/cpp/cuda_parity/test_cuda_parity.cu)
+    add_executable(slipstream_tests_cuda
+        tests/cpp/cuda_parity/test_cuda_parity.cu
+        tests/cpp/cuda_parity/test_cuda_parity_3d.cu
+    )
     target_include_directories(slipstream_tests_cuda PRIVATE core/src)
     target_link_libraries(slipstream_tests_cuda PRIVATE slipstream_core GTest::gtest_main)
 endif()
+
+add_executable(slipstream_tests_3d_parity
+    tests/cpp/3d_parity/test_allocate_3d.cpp
+    tests/cpp/3d_parity/test_inj_cool_3d_parity.cpp
+    tests/cpp/3d_parity/test_scalar_advection_3d_parity.cpp
+    tests/cpp/3d_parity/test_velocity_advection_3d_parity.cpp
+    tests/cpp/3d_parity/test_projection_3d_parity.cpp
+    tests/cpp/3d_parity/test_step_3d_parity.cpp
+)
+target_include_directories(slipstream_tests_3d_parity PRIVATE core/src)
+target_link_libraries(slipstream_tests_3d_parity PRIVATE slipstream_core GTest::gtest_main)
 
 add_executable(slipstream tools/cli.cpp)
 target_include_directories(slipstream PRIVATE core/include tools)
@@ -116,3 +141,4 @@ gtest_discover_tests(slipstream_tests)
 if(SLIPSTREAM_BUILD_CUDA)
     gtest_discover_tests(slipstream_tests_cuda)
 endif()
+gtest_discover_tests(slipstream_tests_3d_parity)

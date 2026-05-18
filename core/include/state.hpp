@@ -6,7 +6,7 @@
 namespace slipstream {
 
 struct State {
-    int nx, ny;
+    int nx, ny, nz;
     int n_emitters;
 
     float* density;
