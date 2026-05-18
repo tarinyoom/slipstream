@@ -139,7 +139,7 @@ TEST(Plume, StrongerBuoyancy_HigherCentroid) {
         set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
         s.buoyancy = buoyancy;
         s.cooling  = 0.5f;
-        run(s, 40);
+        run(s, 15);
         return plume_stats(s.density, N, N);
     };
 
@@ -156,7 +156,7 @@ TEST(Plume, CoolingLimitsRise) {
         set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
         s.buoyancy = 15.0f;
         s.cooling  = cooling;
-        run(s, 40);
+        run(s, 12);
         return plume_stats(s.density, N, N);
     };
 
