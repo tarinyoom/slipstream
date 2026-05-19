@@ -8,31 +8,6 @@ namespace slipstream {
 void write_vdb(const char*            path,
                std::span<const float> density,
                int                    nx,
-               int                    ny)
-{
-    openvdb::initialize();
-
-    openvdb::FloatGrid::Ptr grid = openvdb::FloatGrid::create(0.0f);
-    grid->setName("density");
-    grid->setGridClass(openvdb::GRID_FOG_VOLUME);
-
-    auto acc = grid->getAccessor();
-    for (int y = 0; y < ny; ++y) {
-        for (int x = 0; x < nx; ++x) {
-            float v = density[y * nx + x];
-            if (v != 0.0f)
-                acc.setValue(openvdb::Coord(x, y, 0), v);
-        }
-    }
-
-    openvdb::GridPtrVec grids;
-    grids.push_back(grid);
-    openvdb::io::File(path).write(grids);
-}
-
-void write_vdb(const char*            path,
-               std::span<const float> density,
-               int                    nx,
                int                    ny,
                int                    nz)
 {

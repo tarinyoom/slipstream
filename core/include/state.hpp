@@ -1,7 +1,6 @@
 #pragma once
 
 #include <cstddef>
-#include <span>
 
 namespace slipstream {
 
@@ -23,13 +22,13 @@ struct State {
     float viscosity, buoyancy, cooling, vorticity;
 };
 
-std::size_t required_state_bytes(std::span<const int> dims,
+std::size_t required_state_bytes(int nx, int ny, int nz,
                                  int n_emitters,
                                  bool allocate_solver_workspace);
 
 void init_state(State& state,
                 void* buf, std::size_t len,
-                std::span<const int> dims,
+                int nx, int ny, int nz,
                 int n_emitters,
                 bool allocate_solver_workspace);
 

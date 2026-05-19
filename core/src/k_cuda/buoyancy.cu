@@ -4,24 +4,26 @@
 
 namespace slipstream::k_cuda {
 
-__global__ static void apply_buoyancy_kernel(int nx, int ny, float buoyancy, float dt,
+__global__ static void apply_buoyancy_kernel(int nx, int ny, int nz,
+                                              float buoyancy, float dt,
                                               const float* temperature, float* vx)
 {
-    int j = (int)(blockIdx.x * blockDim.x + threadIdx.x);
-    int i = (int)(blockIdx.y * blockDim.y + threadIdx.y) + 1;
-    if (i >= nx || j >= ny) return;
-    float t_avg = 0.5f * (temperature[(i - 1) * ny + j]
-                        + temperature[ i      * ny + j]);
-    vx[i * ny + j] += buoyancy * t_avg * dt;
+    int k = (int)(blockIdx.x * blockDim.x + threadIdx.x);
+    int j = (int)(blockIdx.y * blockDim.y + threadIdx.y);
+    int i = (int)(blockIdx.z * blockDim.z + threadIdx.z) + 1;
+    if (i >= nx || j >= ny || k >= nz) return;
+    float t_avg = 0.5f * (temperature[((i - 1) * ny + j) * nz + k]
+                        + temperature[( i      * ny + j) * nz + k]);
+    vx[(i * ny + j) * nz + k] += buoyancy * t_avg * dt;
 }
 
-void compute_buoyancy(int nx, int ny, float buoyancy, float dt,
+void compute_buoyancy(int nx, int ny, int nz, float buoyancy, float dt,
                       const float* temperature, float* vx)
 {
     if (nx < 2) return;
-    dim3 block(16, 16);
-    dim3 grid((ny + 15) / 16, (nx - 1 + 15) / 16);
-    apply_buoyancy_kernel<<<grid, block>>>(nx, ny, buoyancy, dt, temperature, vx);
+    dim3 block(8, 8, 8);
+    dim3 grid((nz + 7) / 8, (ny + 7) / 8, (nx - 1 + 7) / 8);
+    apply_buoyancy_kernel<<<grid, block>>>(nx, ny, nz, buoyancy, dt, temperature, vx);
     cudaDeviceSynchronize();
 }
 

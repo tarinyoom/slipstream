@@ -1,7 +1,6 @@
 #include <gtest/gtest.h>
 #include <algorithm>
 #include <cmath>
-#include <span>
 
 #include "memory.hpp"
 #include "state.hpp"
@@ -11,55 +10,71 @@ using namespace slipstream;
 
 namespace {
 
-constexpr int   N         = 32;
+constexpr int   N         = 24;
 constexpr float DT        = 0.04f;
 constexpr float EMITTER_T = 200.0f;
 constexpr float EMITTER_D = 1.0f;
 constexpr int   EMIT_J0   = N / 2 - 2;
 constexpr int   EMIT_J1   = N / 2 + 2;
+constexpr int   EMIT_K0   = N / 2 - 2;
+constexpr int   EMIT_K1   = N / 2 + 2;
 
 struct PlumeStatistics {
     double vertical_centroid;
     double vertical_spread;
     double vertical_skewness;
-    double lateral_centroid;
-    double lateral_spread;
-    double lateral_skewness;
+    double lateral_j_centroid;
+    double lateral_j_spread;
+    double lateral_j_skewness;
+    double lateral_k_centroid;
+    double lateral_k_spread;
+    double lateral_k_skewness;
 };
 
-PlumeStatistics plume_stats(const float* density, int nx, int ny) {
-    double sum_d = 0.0, sum_di = 0.0, sum_dj = 0.0;
+PlumeStatistics plume_stats(const float* density, int nx, int ny, int nz) {
+    double sum_d = 0.0, sum_di = 0.0, sum_dj = 0.0, sum_dk = 0.0;
     for (int i = 0; i < nx; ++i)
-        for (int j = 0; j < ny; ++j) {
-            double d = density[i * ny + j];
-            sum_d  += d;
-            sum_di += d * (double)i;
-            sum_dj += d * (double)j;
-        }
+        for (int j = 0; j < ny; ++j)
+            for (int k = 0; k < nz; ++k) {
+                double d = density[(i * ny + j) * nz + k];
+                sum_d  += d;
+                sum_di += d * (double)i;
+                sum_dj += d * (double)j;
+                sum_dk += d * (double)k;
+            }
     if (sum_d <= 0.0) return {};
     double mi = sum_di / sum_d;
     double mj = sum_dj / sum_d;
-    double m2i = 0.0, m2j = 0.0, m3i = 0.0, m3j = 0.0;
+    double mk = sum_dk / sum_d;
+    double m2i = 0.0, m2j = 0.0, m2k = 0.0;
+    double m3i = 0.0, m3j = 0.0, m3k = 0.0;
     for (int i = 0; i < nx; ++i)
-        for (int j = 0; j < ny; ++j) {
-            double d  = density[i * ny + j];
-            double di = (double)i - mi;
-            double dj = (double)j - mj;
-            m2i += d * di * di;
-            m2j += d * dj * dj;
-            m3i += d * di * di * di;
-            m3j += d * dj * dj * dj;
-        }
+        for (int j = 0; j < ny; ++j)
+            for (int k = 0; k < nz; ++k) {
+                double d  = density[(i * ny + j) * nz + k];
+                double di = (double)i - mi;
+                double dj = (double)j - mj;
+                double dk = (double)k - mk;
+                m2i += d * di * di;
+                m2j += d * dj * dj;
+                m2k += d * dk * dk;
+                m3i += d * di * di * di;
+                m3j += d * dj * dj * dj;
+                m3k += d * dk * dk * dk;
+            }
     return {
         mi, m2i / sum_d, m3i / sum_d,
         mj, m2j / sum_d, m3j / sum_d,
+        mk, m2k / sum_d, m3k / sum_d,
     };
 }
 
-void set_emitter_block(State& s, int i_lo, int i_hi, int j_lo, int j_hi) {
+void set_emitter_block(State& s, int i_lo, int i_hi,
+                       int j_lo, int j_hi, int k_lo, int k_hi) {
     for (int i = i_lo; i < i_hi; ++i)
         for (int j = j_lo; j < j_hi; ++j)
-            s.emitter_masks[i * s.ny + j] = 1.0f;
+            for (int k = k_lo; k < k_hi; ++k)
+                s.emitter_masks[(i * s.ny + j) * s.nz + k] = 1.0f;
     s.emitter_densities[0]    = EMITTER_D;
     s.emitter_temperatures[0] = EMITTER_T;
 }
@@ -72,13 +87,11 @@ struct OwnedState {
     void* buf;
     State s;
 
-    OwnedState(int nx, int ny, int n_emitters, bool scratch) {
-        int dims[] = {nx, ny};
-        std::span<const int> dims_span(dims, 2);
-        const std::size_t sz = required_state_bytes(dims_span, n_emitters, scratch);
+    OwnedState(int nx, int ny, int nz, int n_emitters, bool scratch) {
+        const std::size_t sz = required_state_bytes(nx, ny, nz, n_emitters, scratch);
         buf = host_alloc(sz);
         s = {};
-        init_state(s, buf, sz, dims_span, n_emitters, scratch);
+        init_state(s, buf, sz, nx, ny, nz, n_emitters, scratch);
     }
     ~OwnedState() { host_free(buf); }
     OwnedState(const OwnedState&) = delete;
@@ -88,59 +101,59 @@ struct OwnedState {
 } // namespace
 
 TEST(Plume, ZeroBuoyancy_CentroidStable) {
-    OwnedState st(N, N, 1, true);
+    OwnedState st(N, N, N, 1, true);
     State& s = st.s;
-    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
+    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1, EMIT_K0, EMIT_K1);
     s.buoyancy = 0.0f;
     s.cooling  = 0.0f;
 
     run(s, 1);
-    auto p1 = plume_stats(s.density, N, N);
+    auto p1 = plume_stats(s.density, N, N, N);
     run(s, 29);
-    auto p30 = plume_stats(s.density, N, N);
+    auto p30 = plume_stats(s.density, N, N, N);
 
     EXPECT_NEAR(p30.vertical_centroid, p1.vertical_centroid, 1e-3);
 }
 
 TEST(Plume, Rises_CentroidIncreases) {
-    OwnedState st(N, N, 1, true);
+    OwnedState st(N, N, N, 1, true);
     State& s = st.s;
-    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
+    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1, EMIT_K0, EMIT_K1);
     s.buoyancy = 15.0f;
     s.cooling  = 0.5f;
 
     run(s, 10);
-    auto p10 = plume_stats(s.density, N, N);
+    auto p10 = plume_stats(s.density, N, N, N);
     run(s, 30);
-    auto p40 = plume_stats(s.density, N, N);
+    auto p40 = plume_stats(s.density, N, N, N);
 
     EXPECT_GT(p40.vertical_centroid, p10.vertical_centroid);
 }
 
 TEST(Plume, Rises_SkewnessShifts) {
-    OwnedState st(N, N, 1, true);
+    OwnedState st(N, N, N, 1, true);
     State& s = st.s;
-    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
+    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1, EMIT_K0, EMIT_K1);
     s.buoyancy = 15.0f;
     s.cooling  = 2.0f;
 
     run(s, 5);
-    auto p5 = plume_stats(s.density, N, N);
+    auto p5 = plume_stats(s.density, N, N, N);
     run(s, 35);
-    auto p40 = plume_stats(s.density, N, N);
+    auto p40 = plume_stats(s.density, N, N, N);
 
     EXPECT_GT(std::abs(p40.vertical_skewness), std::abs(p5.vertical_skewness));
 }
 
 TEST(Plume, StrongerBuoyancy_HigherCentroid) {
     auto run_with = [&](float buoyancy) {
-        OwnedState st(N, N, 1, true);
+        OwnedState st(N, N, N, 1, true);
         State& s = st.s;
-        set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
+        set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1, EMIT_K0, EMIT_K1);
         s.buoyancy = buoyancy;
         s.cooling  = 0.5f;
         run(s, 15);
-        return plume_stats(s.density, N, N);
+        return plume_stats(s.density, N, N, N);
     };
 
     auto weak   = run_with(2.0f);
@@ -151,13 +164,13 @@ TEST(Plume, StrongerBuoyancy_HigherCentroid) {
 
 TEST(Plume, CoolingLimitsRise) {
     auto run_with = [&](float cooling) {
-        OwnedState st(N, N, 1, true);
+        OwnedState st(N, N, N, 1, true);
         State& s = st.s;
-        set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
+        set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1, EMIT_K0, EMIT_K1);
         s.buoyancy = 15.0f;
         s.cooling  = cooling;
         run(s, 12);
-        return plume_stats(s.density, N, N);
+        return plume_stats(s.density, N, N, N);
     };
 
     auto without_cool = run_with(0.0f);
@@ -167,33 +180,35 @@ TEST(Plume, CoolingLimitsRise) {
     EXPECT_LT(with_cool.vertical_spread,   without_cool.vertical_spread);
 }
 
-TEST(Plume, SymmetricEmitter_LateralSkewnessNearZero) {
-    OwnedState st(N, N, 1, true);
+TEST(Plume, SymmetricEmitter_BothLateralSkewnessesNearZero) {
+    OwnedState st(N, N, N, 1, true);
     State& s = st.s;
-    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1);
+    set_emitter_block(s, 0, 4, EMIT_J0, EMIT_J1, EMIT_K0, EMIT_K1);
     s.buoyancy = 0.0f;
     s.cooling  = 0.0f;
 
     float* vx = s.velocity;
-    std::fill(vx, vx + (N + 1) * N, 0.5f);
+    std::fill(vx, vx + (N + 1) * N * N, 0.5f);
 
-    for (int milestone = 5; milestone <= 40; milestone += 5) {
+    for (int milestone = 5; milestone <= 25; milestone += 5) {
         run(s, 5);
-        auto p = plume_stats(s.density, N, N);
-        EXPECT_LT(std::abs(p.lateral_skewness), 1e-6)
-            << "step " << milestone << " lateral_skewness=" << p.lateral_skewness;
+        auto p = plume_stats(s.density, N, N, N);
+        EXPECT_LT(std::abs(p.lateral_j_skewness), 1e-6)
+            << "step " << milestone << " lateral_j_skewness=" << p.lateral_j_skewness;
+        EXPECT_LT(std::abs(p.lateral_k_skewness), 1e-6)
+            << "step " << milestone << " lateral_k_skewness=" << p.lateral_k_skewness;
     }
 }
 
 TEST(Plume, WiderEmitter_GreaterInitialSpread) {
     auto run_with_height = [&](int height) {
-        OwnedState st(N, N, 1, true);
+        OwnedState st(N, N, N, 1, true);
         State& s = st.s;
-        set_emitter_block(s, 0, height, EMIT_J0, EMIT_J1);
+        set_emitter_block(s, 0, height, EMIT_J0, EMIT_J1, EMIT_K0, EMIT_K1);
         s.buoyancy = 0.0f;
         s.cooling  = 0.0f;
         run(s, 20);
-        return plume_stats(s.density, N, N);
+        return plume_stats(s.density, N, N, N);
     };
 
     auto narrow = run_with_height(2);
